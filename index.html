@@ -1,142 +1,82 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#10131b">
-  <title>Ink Arena — Writing Battles</title>
+  <title>Ink Arena — Live Writing Battles</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Ink Arena home">
-        <span class="brand-mark">IA</span>
-        <span>INK<span class="brand-light">ARENA</span></span>
-      </a>
-      <nav class="top-nav" aria-label="Main navigation">
-        <a class="nav-link active" href="#arena">Arena</a>
-        <a class="nav-link" href="#leaderboard">Leaderboard</a>
-        <a class="nav-link" href="#how-it-works">How it works</a>
-      </nav>
-      <div class="user-chip">
-        <span class="avatar">Y</span>
-        <span><b>YOU</b><small id="header-rating">1200 ELO</small></span>
-      </div>
+      <a class="brand" href="#" aria-label="Ink Arena home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></a>
+      <nav class="top-nav" aria-label="Main navigation"><a class="nav-link active" href="#arena">Arena</a><a class="nav-link" href="#leaderboard">Leaderboard</a><a class="nav-link" href="#how-it-works">How it works</a></nav>
+      <div class="user-chip"><span class="avatar" id="header-avatar">?</span><span><b id="header-username">GUEST</b><small id="header-rating">SIGN IN TO PLAY</small></span></div>
     </header>
-
     <main>
       <section class="hero">
-        <div class="hero-copy">
-          <div class="eyebrow"><span class="pulse"></span> THE WRITING COMPETITION PLATFORM</div>
-          <h1>Words are your<br><em>weapons.</em></h1>
-          <p>Face a prompt. Write under pressure. Climb the ranks. Welcome to the arena.</p>
-          <a class="primary-btn hero-btn" href="#arena">Enter the arena <span>↗</span></a>
-        </div>
-        <div class="hero-art" aria-hidden="true">
-          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
-          <div class="quill">✒</div>
-          <div class="art-tag tag-top">CREATIVITY <b>+20</b></div>
-          <div class="art-tag tag-bottom">RANKED MATCH <b>01 / 01</b></div>
-        </div>
+        <div class="hero-copy"><div class="eyebrow"><span class="pulse"></span> THE WRITING COMPETITION PLATFORM</div><h1>Words are your<br><em>weapons.</em></h1><p>Face a prompt. Write under pressure. Challenge another writer. Welcome to the arena.</p><a class="primary-btn hero-btn" href="#arena">Enter the arena <span>↗</span></a></div>
+        <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="quill">✒</div><div class="art-tag tag-top">CREATIVITY <b>VS</b></div><div class="art-tag tag-bottom">LIVE SCRIMMAGE <b>01 / 01</b></div></div>
       </section>
 
-      <section class="stats-grid" aria-label="Your statistics">
-        <article class="stat-card"><span class="stat-label">YOUR RATING</span><strong id="rating-stat">1200</strong><span class="stat-foot">ELO POINTS</span></article>
-        <article class="stat-card"><span class="stat-label">MATCHES PLAYED</span><strong id="matches-stat">0</strong><span class="stat-foot">TOTAL BATTLES</span></article>
-        <article class="stat-card"><span class="stat-label">WIN RATE</span><strong id="winrate-stat">—</strong><span class="stat-foot">YOUR RECORD</span></article>
-        <article class="stat-card"><span class="stat-label">CURRENT LEAGUE</span><strong class="league-value" id="league-stat">Apprentice</strong><span class="stat-foot">KEEP CLIMBING</span></article>
+      <section class="auth-card" id="auth-card">
+        <div><div class="eyebrow">PLAYER ACCESS</div><h2>Enter the arena</h2><p>Create a username and sign in to find real opponents. Your email is used for login and is never shown on the leaderboard.</p></div>
+        <form class="auth-form" id="auth-form">
+          <input id="username-input" class="wide" type="text" minlength="3" maxlength="20" autocomplete="nickname" placeholder="Username (for new accounts)" aria-label="Username">
+          <input id="email-input" type="email" autocomplete="email" placeholder="Email address" required aria-label="Email address">
+          <input id="password-input" type="password" minlength="8" autocomplete="current-password" placeholder="Password (8+ characters)" required aria-label="Password">
+          <div class="auth-actions"><button class="primary-btn" id="signup-btn" type="button">Create account</button><button class="secondary-btn" id="login-btn" type="submit">Log in</button></div>
+          <div class="auth-message" id="auth-message" role="status"></div>
+        </form>
+      </section>
+      <div class="signed-in-strip hidden" id="signed-in-strip"><div>Signed in as <b id="signed-in-name">Writer</b><small> · Email is private</small></div><button class="secondary-btn" id="logout-btn">Log out</button></div>
+
+      <section class="stats-grid hidden" id="stats-grid" aria-label="Your statistics">
+        <article class="stat-card"><span class="stat-label">YOUR RATING</span><strong id="rating-stat">1200</strong><span class="stat-foot">RANKED MODE COMING SOON</span></article>
+        <article class="stat-card"><span class="stat-label">MATCHES PLAYED</span><strong id="matches-stat">0</strong><span class="stat-foot">LIVE SCRIMMAGES</span></article>
+        <article class="stat-card"><span class="stat-label">ACCOUNT</span><strong class="league-value" id="league-stat">Writer</strong><span class="stat-foot">YOUR PROFILE</span></article>
+        <article class="stat-card"><span class="stat-label">BATTLE MODE</span><strong class="league-value">Unranked</strong><span class="stat-foot">AI JUDGE NEXT</span></article>
       </section>
 
-      <section class="content-grid" id="arena">
+      <section class="content-grid hidden" id="app-content">
         <div class="main-column">
-          <div class="section-heading">
-            <div><div class="eyebrow">01 / COMPETE</div><h2>Writing arena</h2></div>
-            <span class="live-label"><span class="pulse"></span> OPEN FOR BATTLES</span>
-          </div>
-
+          <div class="section-heading"><div><div class="eyebrow">01 / COMPETE</div><h2>Writing arena</h2></div><span class="live-label"><span class="pulse"></span> OPEN FOR BATTLES</span></div>
           <div class="battle-card" id="battle-card">
-            <div class="battle-topline"><span class="mode-label">⚔ QUICK MATCH</span><span class="match-id" id="match-id">MATCH #—</span></div>
-            <div class="matchup">
-              <div class="player-block">
-                <div class="player-avatar you-avatar">Y</div><b>You</b><small id="you-rating">1200 ELO</small>
-              </div>
-              <div class="versus"><span>VS</span><i></i></div>
-              <div class="player-block">
-                <div class="player-avatar opponent-avatar">?</div><b id="opponent-name">Waiting...</b><small id="opponent-rating">— ELO</small>
-              </div>
-            </div>
-            <div class="battle-info">
-              <div><span class="info-label">TIME LIMIT</span><b>10 minutes</b></div>
-              <div><span class="info-label">WORD LIMIT</span><b>400 words</b></div>
-              <div><span class="info-label">JUDGING</span><b>Practice judge</b></div>
-            </div>
+            <div class="battle-topline"><span class="mode-label">⚔ LIVE SCRIMMAGE</span><span class="match-id" id="match-id">UNRANKED</span></div>
+            <div class="matchup"><div class="player-block"><div class="player-avatar you-avatar" id="you-avatar">Y</div><b id="you-name">You</b><small id="you-rating">WRITER</small></div><div class="versus"><span>VS</span><i></i></div><div class="player-block"><div class="player-avatar opponent-avatar">?</div><b>Find an opponent</b><small>ONLINE QUEUE</small></div></div>
+            <div class="battle-info"><div><span class="info-label">TIME LIMIT</span><b>10 minutes</b></div><div><span class="info-label">WORD LIMIT</span><b>400 words</b></div><div><span class="info-label">RESULT</span><b>Story exchange</b></div></div>
             <button class="primary-btn full-btn" id="start-btn">Find a writing battle <span>→</span></button>
-            <p class="fine-print">Practice mode uses a simulated opponent and sample judging scores.</p>
+            <p class="fine-print">You'll be paired with another signed-in writer who is also waiting.</p>
           </div>
-
+          <div class="waiting-card hidden" id="waiting-card"><div class="waiting-spinner"></div><h3 id="waiting-title">Looking for another writer...</h3><p id="waiting-copy">Keep this tab open. We'll start automatically when another player joins.</p><button class="secondary-btn danger-btn" id="cancel-btn">Cancel search</button></div>
+          <div class="waiting-card hidden" id="opponent-wait-card"><div class="waiting-spinner"></div><h3>Submission received</h3><p>Your story is saved. Waiting for your opponent to submit theirs. This page will update automatically.</p><p class="muted-note">You can leave this tab open; the match state is saved online.</p></div>
           <div class="editor-card hidden" id="editor-card">
-            <div class="editor-header">
-              <div><div class="eyebrow">YOUR CHALLENGE</div><h3 id="prompt-title">The last message</h3></div>
-              <div class="timer" id="timer" aria-live="polite">10:00</div>
-            </div>
-            <div class="prompt-box"><span class="prompt-label">WRITING PROMPT</span><p id="prompt-text"></p></div>
-            <label class="sr-only" for="story-input">Your story</label>
-            <textarea id="story-input" maxlength="5000" placeholder="Every great story starts with a sentence..."></textarea>
-            <div class="editor-footer">
-              <span><b id="word-count">0</b> / 400 words</span>
-              <span id="editor-status">Your draft stays in this browser.</span>
-            </div>
+            <div class="editor-header"><div><div class="eyebrow">YOUR CHALLENGE</div><h3 id="prompt-title">The last message</h3></div><div class="timer" id="timer" aria-live="polite">10:00</div></div>
+            <div class="prompt-box"><span class="prompt-label">SHARED WRITING PROMPT</span><p id="prompt-text"></p></div>
+            <label class="sr-only" for="story-input">Your story</label><textarea id="story-input" maxlength="5000" placeholder="Every great story starts with a sentence..."></textarea>
+            <div class="editor-footer"><span><b id="word-count">0</b> / 400 words</span><span id="editor-status">Both writers share the same deadline.</span></div>
             <button class="primary-btn full-btn" id="submit-btn" disabled>Submit story <span>→</span></button>
-            <button class="text-btn" id="cancel-btn">Abandon practice match</button>
+            <button class="text-btn" id="give-up-btn">Leave this match</button>
           </div>
-
           <div class="results-card hidden" id="results-card">
-            <div class="result-banner"><span class="eyebrow">BATTLE COMPLETE</span><div class="result-title" id="result-title">A close match.</div><p id="result-subtitle">Here is your practice evaluation.</p></div>
-            <div class="score-comparison">
-              <div><span class="info-label">YOUR SCORE</span><strong id="your-score">—</strong></div>
-              <div class="score-vs">VS</div>
-              <div><span class="info-label">OPPONENT</span><strong id="their-score">—</strong></div>
-            </div>
-            <div class="rating-change"><span>RATING CHANGE</span><b id="rating-change">+0 ELO</b></div>
-            <h3>Writing breakdown</h3>
-            <div id="score-breakdown" class="breakdown"></div>
-            <div class="feedback-box"><b>Judge's notes</b><p id="judge-feedback"></p></div>
-            <div class="result-actions"><button class="primary-btn" id="again-btn">Play another battle →</button><button class="secondary-btn" id="read-again-btn">Review my story</button></div>
-            <div id="review-story" class="review-story hidden"></div>
+            <div class="result-banner"><span class="eyebrow">BATTLE COMPLETE</span><div class="result-title">Both stories are in.</div><p id="result-subtitle">Read the two submissions below.</p></div>
+            <div class="status-note"><b>Unranked scrimmage:</b> The live multiplayer match is working. AI judging and rating changes are the next development step, so no winner or ELO change is assigned yet.</div>
+            <div class="story-pair"><article class="story-panel"><h4 id="story-one-title">Writer 1</h4><p id="story-one"></p></article><article class="story-panel"><h4 id="story-two-title">Writer 2</h4><p id="story-two"></p></article></div>
+            <div class="result-actions"><button class="primary-btn" id="again-btn">Find another opponent →</button></div>
           </div>
         </div>
 
         <aside class="side-column">
-          <section class="side-card" id="leaderboard">
-            <div class="side-heading"><div><div class="eyebrow">02 / THE CLIMB</div><h3>Leaderboard</h3></div><span class="trophy">♜</span></div>
-            <div class="leader-row"><span class="rank">01</span><span class="mini-avatar gold">M</span><span class="leader-name">MorrowInk<small>Master</small></span><b>2184</b></div>
-            <div class="leader-row"><span class="rank">02</span><span class="mini-avatar silver">S</span><span class="leader-name">SilverQuill<small>Author</small></span><b>1942</b></div>
-            <div class="leader-row"><span class="rank">03</span><span class="mini-avatar bronze">V</span><span class="leader-name">VelvetPlot<small>Author</small></span><b>1810</b></div>
-            <div class="leader-row you-row"><span class="rank">—</span><span class="mini-avatar you-mini">Y</span><span class="leader-name">You<small id="you-league">Apprentice</small></span><b id="leader-rating">1200</b></div>
-            <p class="fine-print">Sample leaderboard names and ratings.</p>
-          </section>
-
-          <section class="side-card" id="how-it-works">
-            <div class="eyebrow">03 / THE RULES</div><h3>How to play</h3>
-            <ol class="rules-list">
-              <li><span>1</span><div><b>Get a prompt</b><small>Both writers receive the same creative challenge.</small></div></li>
-              <li><span>2</span><div><b>Write your story</b><small>Make every word count before time runs out.</small></div></li>
-              <li><span>3</span><div><b>Get judged</b><small>Compare scores and see what you can improve.</small></div></li>
-              <li><span>4</span><div><b>Climb the ladder</b><small>Win practice matches and grow your rating.</small></div></li>
-            </ol>
-          </section>
-
-          <section class="side-card history-card">
-            <div class="eyebrow">04 / YOUR RECORD</div><h3>Recent battles</h3>
-            <div id="history-list" class="history-list"><p class="empty-history">No battles yet. Your first match is waiting.</p></div>
-          </section>
+          <section class="side-card" id="leaderboard"><div class="side-heading"><div><div class="eyebrow">02 / THE CLIMB</div><h3>Leaderboard</h3></div><span class="trophy">♜</span></div><div id="leaderboard-list"><p class="empty-history">Sign in to load the leaderboard.</p></div><p class="fine-print">Ratings unlock when AI judging is connected.</p></section>
+          <section class="side-card" id="how-it-works"><div class="eyebrow">03 / THE RULES</div><h3>How to play</h3><ol class="rules-list"><li><span>1</span><div><b>Find a writer</b><small>Join the queue and get paired with another player.</small></div></li><li><span>2</span><div><b>Share a prompt</b><small>Both writers receive the exact same challenge.</small></div></li><li><span>3</span><div><b>Write before time runs out</b><small>Each writer has 10 minutes and 400 words.</small></div></li><li><span>4</span><div><b>Exchange stories</b><small>Both submissions appear when the match ends.</small></div></li></ol></section>
+          <section class="side-card"><div class="eyebrow">04 / NEXT UP</div><h3>Coming next</h3><p class="muted-note">Secure AI judging, fair ELO calculations, match history, friend challenges, and tournaments. This version is for testing live matches with people you know.</p></section>
         </aside>
       </section>
     </main>
-    <footer><a class="brand footer-brand" href="#"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></a><span>WRITE. COMPETE. IMPROVE.</span><span>Prototype v1.0</span></footer>
+    <footer><a class="brand footer-brand" href="#"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></a><span>WRITE. COMPETE. IMPROVE.</span><span>Multiplayer beta v2</span></footer>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
-</body>
-</html>
+</body></html>
