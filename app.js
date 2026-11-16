@@ -6,7 +6,7 @@
   const configured = CONFIG.supabaseUrl && CONFIG.supabasePublishableKey &&
     !String(CONFIG.supabaseUrl).includes("PASTE_") && !String(CONFIG.supabasePublishableKey).includes("PASTE_");
   const PREF_DEFAULTS = { players: 4, minutes: 10, characters: 10000, theme: "dark", font: 16 };
-  const PROMPT_CATEGORIES = ["Fantasy", "Mystery", "Science Fiction", "Realistic Fiction", "Horror (mild)", "Adventure", "Comedy", "Drama", "Historical", "Surreal"];
+  const PROMPT_CATEGORIES = ["Fantasy", "Mystery", "Science Fiction", "Realistic Fiction", "Horror", "Adventure", "Comedy", "Drama", "Historical", "Surreal"];
 
   let client = null;
   let currentUser = null;
@@ -22,6 +22,7 @@
   let currentPrefs = { ...PREF_DEFAULTS };
   let promptCache = [];
   let toastHandle = null;
+  let currentPage = "home";
 
   function toast(message) {
     const el = $("toast");
@@ -58,7 +59,7 @@
     catch { currentPrefs = { ...PREF_DEFAULTS }; }
     applyAppearance();
     syncSettingsControls();
-    updateQueueSummary();
+    syncArenaModeControls();
   }
   function savePrefs() { localStorage.setItem(prefKey(), JSON.stringify(currentPrefs)); updateQueueSummary(); applyAppearance(); }
   function applyAppearance() {
@@ -69,12 +70,15 @@
     document.documentElement.style.setProperty("--editor-size", `${currentPrefs.font || 16}px`);
   }
   function syncSettingsControls() {
-    $("pref-players").value = String(currentPrefs.players);
-    $("pref-minutes").value = String(currentPrefs.minutes);
-    $("pref-characters").value = String(currentPrefs.characters);
     $("pref-theme").value = currentPrefs.theme;
     $("pref-font").value = String(currentPrefs.font);
     if (currentProfile) $("settings-username").value = currentProfile.username || "";
+  }
+  function syncArenaModeControls() {
+    $("arena-players").value = String(currentPrefs.players);
+    $("arena-minutes").value = String(currentPrefs.minutes);
+    $("arena-characters").value = String(currentPrefs.characters);
+    updateQueueSummary();
   }
   function updateQueueSummary() {
     const p = currentPrefs;
@@ -82,6 +86,25 @@
     safeText($("queue-players"), `${p.players} writers`);
     safeText($("queue-time"), `${p.minutes} minutes`);
     safeText($("queue-characters"), `${Number(p.characters).toLocaleString()} characters`);
+  }
+  function updateArenaMode() {
+    currentPrefs.players = Number($("arena-players").value);
+    currentPrefs.minutes = Number($("arena-minutes").value);
+    currentPrefs.characters = Number($("arena-characters").value);
+    savePrefs();
+  }
+  function navigateTo(page, updateHistory = true) {
+    const validPages = ["home", "arena", "rankings", "profile"];
+    if (!validPages.includes(page)) page = "home";
+    if (page !== "home" && !currentUser) {
+      page = "home";
+      toast("Please sign in to access that page.");
+    }
+    currentPage = page;
+    document.querySelectorAll(".page-view").forEach(view => view.classList.toggle("active", view.id === `page-${page}`));
+    document.querySelectorAll("[data-page]").forEach(button => button.classList.toggle("active", button.dataset.page === page));
+    if (updateHistory && window.location.hash !== `#${page}`) window.history.pushState({ page }, "", `#${page}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function leagueFor(rating) {
     if (rating >= 2400) return "Grandmaster";
@@ -102,6 +125,7 @@
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
     bindEvents();
+    navigateTo((window.location.hash || "#home").slice(1), false);
     client.auth.onAuthStateChange((event, session) => {
       window.setTimeout(() => {
         if (event === "PASSWORD_RECOVERY") {
@@ -134,18 +158,24 @@
     $("submit-btn").addEventListener("click", () => submitStory());
     $("save-draft-btn").addEventListener("click", saveDraft);
     $("refresh-match-btn").addEventListener("click", pollMatch);
-    $("again-btn").addEventListener("click", () => { stopPolling(); activeMatch = null; showScreen("battle-card"); findMatch(); });
+    $("again-btn").addEventListener("click", () => { stopPolling(); activeMatch = null; showScreen("battle-card"); navigateTo("arena"); findMatch(); });
     $("judge-retry-btn").addEventListener("click", () => runJudge(true));
     $("story-input").addEventListener("input", () => { updateCharacterCount(); saveDraft(false); });
     $("settings-open").addEventListener("click", openSettings);
-    $("quick-settings-open").addEventListener("click", openSettings);
-    $("save-prefs-btn").addEventListener("click", saveMatchPreferences);
+    $("arena-players").addEventListener("change", updateArenaMode);
+    $("arena-minutes").addEventListener("change", updateArenaMode);
+    $("arena-characters").addEventListener("change", updateArenaMode);
     $("save-look-btn").addEventListener("click", saveAppearancePreferences);
     $("save-username-btn").addEventListener("click", saveUsername);
     $("settings-reset-password").addEventListener("click", resetPassword);
     $("change-password-btn").addEventListener("click", changePassword);
     $("prompts-open").addEventListener("click", openPrompts);
     $("history-refresh").addEventListener("click", loadHistory);
+    $("rankings-refresh").addEventListener("click", loadLeaderboard);
+    document.querySelectorAll("[data-page]").forEach(button => button.addEventListener("click", event => {
+      event.preventDefault(); navigateTo(button.dataset.page);
+    }));
+    window.addEventListener("popstate", () => navigateTo((window.location.hash || "#home").slice(1), false));
     $("prompt-search").addEventListener("input", renderPromptLibrary);
     $("prompt-category-filter").addEventListener("change", renderPromptLibrary);
     $("prompt-difficulty-filter").addEventListener("change", renderPromptLibrary);
@@ -254,7 +284,9 @@
       $("signed-in-strip").classList.add("hidden");
       $("stats-grid").classList.add("hidden");
       $("app-content").classList.add("hidden");
+      $("home-dashboard").classList.add("hidden");
       $("settings-open").classList.add("hidden");
+      navigateTo("home", false);
       safeText($("header-username"), "GUEST"); safeText($("header-rating"), "SIGN IN TO PLAY"); safeText($("header-avatar"), "?");
       return;
     }
@@ -262,8 +294,11 @@
     $("signed-in-strip").classList.remove("hidden");
     $("stats-grid").classList.remove("hidden");
     $("app-content").classList.remove("hidden");
+    $("home-dashboard").classList.remove("hidden");
     $("settings-open").classList.remove("hidden");
     readPrefs();
+    syncArenaModeControls();
+    navigateTo(currentPage, false);
     await loadProfile();
     await Promise.all([loadLeaderboard(), loadPromptLibrary(), loadHistory()]);
     await resumeMatch();
@@ -287,6 +322,14 @@
     safeText($("record-stat"), `${data.wins || 0} W · ${data.losses || 0} L · ${data.draws || 0} D`);
     safeText($("league-stat"), leagueFor(data.rating));
     safeText($("winrate-stat"), matches ? `${Math.round((data.wins || 0) / matches * 100)}%` : "—");
+    safeText($("profile-username"), username);
+    safeText($("profile-avatar"), username.charAt(0).toUpperCase());
+    safeText($("profile-league"), leagueFor(data.rating));
+    safeText($("profile-rating"), data.rating);
+    safeText($("profile-matches"), matches);
+    safeText($("profile-wins"), data.wins || 0);
+    safeText($("profile-losses"), data.losses || 0);
+    safeText($("profile-draws"), data.draws || 0);
     $("settings-username").value = username;
   }
 
@@ -362,12 +405,6 @@
   function openSettings() { syncSettingsControls(); settingsMessage(""); $("settings-modal").classList.remove("hidden"); }
   function openPrompts() { $("prompts-modal").classList.remove("hidden"); renderPromptLibrary(); }
   function closeModal(id) { $(id)?.classList.add("hidden"); }
-  function saveMatchPreferences() {
-    currentPrefs.players = Number($("pref-players").value);
-    currentPrefs.minutes = Number($("pref-minutes").value);
-    currentPrefs.characters = Number($("pref-characters").value);
-    savePrefs(); settingsMessage("Match settings saved. They will apply to your next queue."); toast("Match settings saved.");
-  }
   function saveAppearancePreferences() {
     currentPrefs.theme = $("pref-theme").value;
     currentPrefs.font = Number($("pref-font").value);
@@ -403,6 +440,7 @@
 
   async function findMatch() {
     if (!currentUser || busy) return;
+    navigateTo("arena");
     if (activeMatch && ["waiting", "active"].includes(activeMatch.status)) return toast("You are already in a match.");
     setBusy(true); safeText($("start-btn"), "Finding your room...");
     try {
