@@ -42,7 +42,7 @@
     el.style.color = error ? "var(--red)" : "var(--gold)";
   }
   function safeText(node, value) { if (node) node.textContent = value == null ? "" : String(value); }
-  function setBusy(value, ids = ["signup-btn", "login-btn", "start-btn", "submit-btn"]) {
+  function setBusy(value, ids = ["signup-btn", "login-btn", "guest-btn", "start-btn", "submit-btn"]) {
     busy = value;
     ids.forEach(id => { const el = $(id); if (el) el.disabled = value || el.dataset.locked === "true"; });
   }
@@ -119,6 +119,7 @@
       authMessage("Setup needed: add your Supabase Project URL and Publishable key to config.js.", true);
       $("signup-btn").disabled = true;
       $("login-btn").disabled = true;
+      if ($("guest-btn")) $("guest-btn").disabled = true;
       return;
     }
     client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabasePublishableKey, {
@@ -149,6 +150,7 @@
   function bindEvents() {
     $("auth-form").addEventListener("submit", login);
     $("signup-btn").addEventListener("click", signup);
+    $("guest-btn").addEventListener("click", continueAsGuest);
     $("resend-btn").addEventListener("click", resendConfirmation);
     $("reset-password-btn").addEventListener("click", resetPassword);
     $("logout-btn").addEventListener("click", logout);
@@ -196,7 +198,7 @@
     if (!email || password.length < 8) return authMessage("Enter an email and a password with at least 8 characters.", true);
     if (!$("signup-consent").checked) return authMessage("Please confirm the age, guardian-permission, and story-privacy notice before creating an account.", true);
     if (password !== confirm) return authMessage("The passwords do not match. Please check both fields.", true);
-    setBusy(true, ["signup-btn", "login-btn"]); authMessage("Creating your account...");
+    setBusy(true, ["signup-btn", "login-btn", "guest-btn"]); authMessage("Creating your account...");
     try {
       const { data, error } = await client.auth.signUp({
         email, password,
@@ -206,7 +208,26 @@
       if (!data.session) authMessage("Account created. Check your email and confirm the address before logging in.");
       else authMessage("Account created. Welcome to Ink Arena!");
     } catch (e) { authMessage(e.message || "Could not create account.", true); }
-    finally { setBusy(false, ["signup-btn", "login-btn"]); }
+    finally { setBusy(false, ["signup-btn", "login-btn", "guest-btn"]); }
+  }
+
+  async function continueAsGuest() {
+    if (busy) return;
+    if (!$("signup-consent").checked) return authMessage("Please confirm the age, guardian-permission, and story-privacy notice before continuing.", true);
+    setBusy(true, ["guest-btn", "signup-btn", "login-btn"]);
+    authMessage("Creating a temporary guest session...");
+    try {
+      const { error } = await client.auth.signInAnonymously();
+      if (error) throw error;
+      authMessage("Guest session created. It has no ELO and cannot be recovered after you sign out or clear this browser's data.");
+    } catch (e) {
+      const message = /anonymous|disabled/i.test(e.message || "")
+        ? "Guest sign-in is not enabled in Supabase yet. Enable Anonymous Sign-Ins in Authentication settings, then try again."
+        : (e.message || "Could not start a guest session.");
+      authMessage(message, true);
+    } finally {
+      setBusy(false, ["guest-btn", "signup-btn", "login-btn"]);
+    }
   }
 
   async function resendConfirmation() {
@@ -239,14 +260,14 @@
     const email = $("email-input").value.trim();
     const password = $("password-input").value;
     if (!email || !password) return authMessage("Enter your email and password.", true);
-    setBusy(true, ["login-btn", "signup-btn"]); authMessage("Signing in...");
+    setBusy(true, ["login-btn", "signup-btn", "guest-btn"]); authMessage("Signing in...");
     try {
       const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;
       authMessage("Signed in.");
       $("confirm-password-input").value = "";
     } catch (e) { authMessage(e.message || "Could not sign in.", true); }
-    finally { setBusy(false, ["login-btn", "signup-btn"]); }
+    finally { setBusy(false, ["login-btn", "signup-btn", "guest-btn"]); }
   }
 
   async function changePassword() {
@@ -263,10 +284,16 @@
   }
 
   async function logout() {
+    const isGuest = Boolean(currentProfile?.is_guest || currentUser?.is_anonymous);
     if (activeMatch && ["waiting", "active"].includes(activeMatch.status)) {
-      const ok = window.confirm("You are in a live match or queue. Leave it and log out?");
+      const warning = isGuest
+        ? "You are in a live match or queue. Leaving will end this temporary guest session, which cannot be recovered later. Continue?"
+        : "You are in a live match or queue. Leave it and log out?";
+      const ok = window.confirm(warning);
       if (!ok) return;
       await leaveMatch(true);
+    } else if (isGuest && !window.confirm("Guest accounts are temporary. Logging out means you cannot sign back into this guest identity. Continue?")) {
+      return;
     }
     stopPolling();
     const { error } = await client.auth.signOut();
@@ -305,37 +332,49 @@
   }
 
   async function loadProfile() {
-    const { data, error } = await client.from("profiles").select("id,username,rating,wins,losses,draws").eq("id", currentUser.id).single();
+    const { data, error } = await client.from("profiles").select("id,username,rating,wins,losses,draws,is_guest").eq("id", currentUser.id).single();
     if (error) { toast("Profile could not load: " + error.message); return; }
     currentProfile = data;
-    const username = data.username || "Writer";
+    const isGuest = Boolean(data.is_guest || currentUser.is_anonymous);
+    const username = data.username || (isGuest ? "Guest" : "Writer");
     safeText($("header-username"), username.toUpperCase());
     safeText($("header-avatar"), username.charAt(0).toUpperCase());
     safeText($("signed-in-name"), username);
+    safeText($("signed-in-meta"), isGuest
+      ? " · Temporary guest · no ELO · this browser only"
+      : " · Your email is private");
     safeText($("you-name"), username);
     safeText($("you-avatar"), username.charAt(0).toUpperCase());
-    safeText($("you-rating"), `${data.rating} ELO`);
-    safeText($("header-rating"), `${data.rating} ELO · ${leagueFor(data.rating)}`);
-    safeText($("rating-stat"), data.rating);
+    safeText($("you-rating"), isGuest ? "Unranked guest" : `${data.rating} ELO`);
+    safeText($("header-rating"), isGuest ? "UNRANKED GUEST · NO ELO" : `${data.rating} ELO · ${leagueFor(data.rating)}`);
+    safeText($("rating-stat"), isGuest ? "—" : data.rating);
     const matches = (data.wins || 0) + (data.losses || 0) + (data.draws || 0);
     safeText($("matches-stat"), matches);
-    safeText($("record-stat"), `${data.wins || 0} W · ${data.losses || 0} L · ${data.draws || 0} D`);
-    safeText($("league-stat"), leagueFor(data.rating));
-    safeText($("winrate-stat"), matches ? `${Math.round((data.wins || 0) / matches * 100)}%` : "—");
+    safeText($("record-stat"), isGuest ? "Guest matches do not affect rankings" : `${data.wins || 0} W · ${data.losses || 0} L · ${data.draws || 0} D`);
+    safeText($("league-stat"), isGuest ? "Unranked" : leagueFor(data.rating));
+    safeText($("winrate-stat"), isGuest ? "—" : (matches ? `${Math.round((data.wins || 0) / matches * 100)}%` : "—"));
     safeText($("profile-username"), username);
     safeText($("profile-avatar"), username.charAt(0).toUpperCase());
-    safeText($("profile-league"), leagueFor(data.rating));
-    safeText($("profile-rating"), data.rating);
+    safeText($("profile-league"), isGuest ? "Guest · Unranked" : leagueFor(data.rating));
+    safeText($("profile-rating"), isGuest ? "—" : data.rating);
     safeText($("profile-matches"), matches);
     safeText($("profile-wins"), data.wins || 0);
     safeText($("profile-losses"), data.losses || 0);
     safeText($("profile-draws"), data.draws || 0);
+    $("stats-grid").classList.toggle("hidden", isGuest);
+    $("home-guest-note").classList.toggle("hidden", !isGuest);
+    $("profile-rating-block").classList.toggle("hidden", isGuest);
+    $("profile-stats-grid").classList.toggle("hidden", isGuest);
+    $("account-security-section").classList.toggle("hidden", isGuest);
+    safeText($("profile-description"), isGuest
+      ? "Temporary guest profile. This identity is stored only in this browser session and has no ELO rating."
+      : "Your profile is public to other signed-in Ink Arena players.");
     $("settings-username").value = username;
   }
 
   async function loadLeaderboard() {
     const container = $("leaderboard-list"); container.replaceChildren();
-    const { data, error } = await client.from("profiles").select("username,rating,wins,losses,draws").order("rating", { ascending: false }).limit(10);
+    const { data, error } = await client.from("profiles").select("username,rating,wins,losses,draws").eq("is_guest", false).order("rating", { ascending: false }).limit(10);
     if (error) { safeText(container, "Leaderboard unavailable: " + error.message); return; }
     if (!data?.length) { safeText(container, "No writers yet. Be the first to join."); return; }
     data.forEach((person, i) => {
@@ -368,7 +407,7 @@
       const right = document.createElement("b");
       const myResult = match.judge_result?.evaluations?.find(e => e.user_id === currentUser.id);
       const delta = match.judge_result?.rating_changes?.find(e => e.user_id === currentUser.id)?.delta;
-      right.textContent = myResult ? `${myResult.total}/100${Number.isFinite(delta) ? ` · ${delta > 0 ? "+" : ""}${delta}` : ""}` : (match.judge_status === "completed" ? "Judged" : match.status === "completed" ? "Judging" : "—");
+      right.textContent = myResult ? `${myResult.total}/100${match.judge_result?.unranked_match ? " · No ELO" : (Number.isFinite(delta) ? ` · ${delta > 0 ? "+" : ""}${delta}` : "")}` : (match.judge_status === "completed" ? "Judged" : match.status === "completed" ? "Judging" : "—");
       if (Number(delta) > 0) right.className = "won"; else if (Number(delta) < 0) right.className = "lost";
       item.append(left, right); container.appendChild(item);
     });
@@ -650,7 +689,7 @@
   function renderJudgeStatus(match) {
     const box = $("judge-status");
     box.className = "judge-status";
-    if (match.judge_status === "completed") { box.classList.add("done"); box.innerHTML = '<span class="status-dot"></span><span>AI judging complete · scores and ratings saved.</span>'; }
+    if (match.judge_status === "completed") { box.classList.add("done"); box.innerHTML = match.judge_result?.unranked_match ? '<span class="status-dot"></span><span>AI judging complete · guest match · no ELO changes.</span>' : '<span class="status-dot"></span><span>AI judging complete · scores and ratings saved.</span>'; }
     else if (match.judge_status === "processing") { box.innerHTML = '<span class="status-dot"></span><span>AI judge is reading the stories and comparing the rubric…</span>'; }
     else if (match.judge_status === "failed") { box.classList.add("error"); box.innerHTML = '<span class="status-dot"></span><span>AI judging failed. You can retry after checking the API setup.</span>'; }
     else if (match.judge_status === "blocked") { box.classList.add("error"); box.textContent = "The automated safety filter stopped this match. No stories were revealed, no scores were issued, and no ratings changed."; }
@@ -682,7 +721,7 @@
       const name = document.createElement("div"); name.className = "ranked-name"; name.textContent = `${index + 1}. ${who?.username || "Writer"}${who?.user_id === currentUser.id ? " (You)" : ""}`;
       const rating = document.createElement("div"); rating.className = "ranked-ratings";
       const delta = score.rating?.delta;
-      rating.textContent = score.rating ? `${score.rating.old_rating} → ${score.rating.new_rating} ELO (${delta > 0 ? "+" : ""}${delta})` : "Rating pending";
+      rating.textContent = result?.unranked_match ? "Unranked guest match · no ELO changes" : (score.rating ? `${score.rating.old_rating} → ${score.rating.new_rating} ELO (${delta > 0 ? "+" : ""}${delta})` : "Rating pending");
       left.append(name, rating);
       const points = document.createElement("strong"); points.className = "ranked-score"; points.textContent = `${score.total}/100`;
       top.append(left, points); card.appendChild(top);

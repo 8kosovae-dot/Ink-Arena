@@ -41,20 +41,22 @@
         </section>
 
         <section class="auth-card" id="auth-card">
-          <div class="auth-intro"><div class="eyebrow">PLAYER ACCESS</div><h2>Enter the arena</h2><p>Create an account or log in. Your email stays private; other players see your username.</p></div>
+          <div class="auth-intro"><div class="eyebrow">PLAYER ACCESS</div><h2>Enter the arena</h2><p>Create an account, log in, or continue as a temporary guest. Guest battles are unranked and do not affect ELO.</p></div>
           <form class="auth-form" id="auth-form">
             <input id="username-input" class="wide" type="text" minlength="3" maxlength="20" autocomplete="nickname" placeholder="Username (for new accounts)" aria-label="Username">
             <input id="email-input" type="email" autocomplete="email" placeholder="Email address" required aria-label="Email address">
             <input id="password-input" type="password" minlength="8" autocomplete="new-password" placeholder="Password (8+ characters)" required aria-label="Password">
             <input id="confirm-password-input" type="password" minlength="8" autocomplete="new-password" placeholder="Confirm password (sign-up only)" aria-label="Confirm password">
             <label class="consent-row wide" for="signup-consent"><input id="signup-consent" type="checkbox"><span>I confirm I am at least 13. If I am under 18, I have permission from a parent or guardian. I understand my submitted stories are visible to match participants and sent to Groq for automated screening and AI judging.</span></label>
-            <div class="auth-actions"><button class="primary-btn" id="signup-btn" type="button">Create account</button><button class="secondary-btn" id="login-btn" type="submit">Log in</button></div>
+            <div class="auth-actions"><button class="primary-btn" id="signup-btn" type="button">Create account</button><button class="secondary-btn" id="login-btn" type="submit">Log in</button><button class="secondary-btn" id="guest-btn" type="button">Continue as guest</button></div>
             <div class="auth-utility"><button class="text-btn" id="resend-btn" type="button">Resend confirmation</button><button class="text-btn" id="reset-password-btn" type="button">Forgot password?</button></div>
             <div class="auth-message" id="auth-message" role="status" aria-live="polite"></div>
           </form>
         </section>
 
-        <div class="signed-in-strip hidden" id="signed-in-strip"><div>Signed in as <b id="signed-in-name">Writer</b><small> · Your email is private</small></div><div class="strip-actions"><button class="secondary-btn" data-page="profile">View profile</button><button class="secondary-btn" id="logout-btn">Log out</button></div></div>
+        <div class="signed-in-strip hidden" id="signed-in-strip"><div>Signed in as <b id="signed-in-name">Writer</b><small id="signed-in-meta"> · Your email is private</small></div><div class="strip-actions"><button class="secondary-btn" data-page="profile">View profile</button><button class="secondary-btn" id="logout-btn">Log out</button></div></div>
+
+        <div class="guest-mode-note hidden" id="home-guest-note"><b>Guest mode</b><span>You can battle and receive writing scores, but guest matches do not change ELO or appear on the leaderboard. This temporary identity cannot be recovered if you log out or clear this browser’s data.</span></div>
 
         <section class="stats-grid hidden" id="stats-grid" aria-label="Your statistics">
           <article class="stat-card"><span class="stat-label">YOUR RATING</span><strong id="rating-stat">1200</strong><span class="stat-foot">AI-JUDGED ELO</span></article>
@@ -120,14 +122,14 @@
 
         <section class="page-view" id="page-profile" aria-labelledby="profile-title">
           <div class="page-heading"><div><div class="eyebrow">03 / YOUR RECORD</div><h1 id="profile-title">Your profile</h1><p>Your writing record, rating, and recent battles.</p></div></div>
-          <div class="profile-card"><div class="profile-avatar" id="profile-avatar">W</div><div class="profile-main"><h2 id="profile-username">Writer</h2><span id="profile-league" class="profile-league">Apprentice</span><p>Your profile is public to other signed-in Ink Arena players.</p></div><div class="profile-rating-block"><span class="info-label">CURRENT RATING</span><strong id="profile-rating">1200</strong><small>ELO</small></div></div>
-          <div class="profile-stats-grid"><article class="stat-card"><span class="stat-label">MATCHES</span><strong id="profile-matches">0</strong></article><article class="stat-card"><span class="stat-label">WINS</span><strong id="profile-wins">0</strong></article><article class="stat-card"><span class="stat-label">LOSSES</span><strong id="profile-losses">0</strong></article><article class="stat-card"><span class="stat-label">DRAWS</span><strong id="profile-draws">0</strong></article></div>
+          <div class="profile-card"><div class="profile-avatar" id="profile-avatar">W</div><div class="profile-main"><h2 id="profile-username">Writer</h2><span id="profile-league" class="profile-league">Apprentice</span><p id="profile-description">Your profile is public to other signed-in Ink Arena players.</p></div><div class="profile-rating-block" id="profile-rating-block"><span class="info-label">CURRENT RATING</span><strong id="profile-rating">1200</strong><small>ELO</small></div></div>
+          <div class="profile-stats-grid" id="profile-stats-grid"><article class="stat-card"><span class="stat-label">MATCHES</span><strong id="profile-matches">0</strong></article><article class="stat-card"><span class="stat-label">WINS</span><strong id="profile-wins">0</strong></article><article class="stat-card"><span class="stat-label">LOSSES</span><strong id="profile-losses">0</strong></article><article class="stat-card"><span class="stat-label">DRAWS</span><strong id="profile-draws">0</strong></article></div>
           <div class="history-card-full"><div class="side-heading"><div><div class="eyebrow">MATCH ARCHIVE</div><h2>Recent battles</h2></div><button class="secondary-btn" id="history-refresh">Refresh</button></div><div id="history-list" class="history-list"><p class="empty-history">Your match history will appear here.</p></div></div>
         </section>
       </div>
     </main>
 
-    <footer><button class="brand footer-brand" data-page="home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></button><span>WRITE. COMPETE. IMPROVE.</span><span>Beta v3.1</span></footer>
+    <footer><button class="brand footer-brand" data-page="home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></button><span>WRITE. COMPETE. IMPROVE.</span><span>Beta v3.2</span></footer>
   </div>
 
   <div class="modal-backdrop hidden" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -135,7 +137,7 @@
       <div class="settings-grid">
         <section class="settings-section"><h3>Account</h3><label for="settings-username">Public username</label><input id="settings-username" maxlength="20" autocomplete="off"><button class="secondary-btn" id="save-username-btn">Save username</button><p class="muted-note">3–20 letters, numbers, or underscores.</p></section>
         <section class="settings-section"><h3>Appearance</h3><label for="pref-theme">Theme</label><select id="pref-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Use device setting</option></select><label for="pref-font">Writing editor text</label><select id="pref-font"><option value="16">Comfortable</option><option value="18">Large</option><option value="20">Extra large</option></select><button class="secondary-btn" id="save-look-btn">Save appearance</button></section>
-        <section class="settings-section"><h3>Account security</h3><p class="muted-note">Send yourself a secure reset email, then choose a new password here. Ink Arena never stores your password in its own settings.</p><button class="secondary-btn" id="settings-reset-password">Email me a password reset</button><label for="settings-new-password">New password (8+ characters)</label><input id="settings-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="New password"><label for="settings-confirm-new-password">Confirm new password</label><input id="settings-confirm-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again"><button class="secondary-btn" id="change-password-btn">Update password</button></section>
+        <section class="settings-section" id="account-security-section"><h3>Account security</h3><p class="muted-note">Send yourself a secure reset email, then choose a new password here. Ink Arena never stores your password in its own settings.</p><button class="secondary-btn" id="settings-reset-password">Email me a password reset</button><label for="settings-new-password">New password (8+ characters)</label><input id="settings-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="New password"><label for="settings-confirm-new-password">Confirm new password</label><input id="settings-confirm-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again"><button class="secondary-btn" id="change-password-btn">Update password</button></section>
       </div>
       <p class="modal-feedback" id="settings-feedback" role="status"></p>
     </div>
