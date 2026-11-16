@@ -5,7 +5,7 @@
   const CONFIG = window.INK_ARENA_CONFIG || {};
   const configured = CONFIG.supabaseUrl && CONFIG.supabasePublishableKey &&
     !String(CONFIG.supabaseUrl).includes("PASTE_") && !String(CONFIG.supabasePublishableKey).includes("PASTE_");
-  const PREF_DEFAULTS = { players: 4, minutes: 10, words: 500, theme: "dark", font: 16 };
+  const PREF_DEFAULTS = { players: 4, minutes: 10, characters: 10000, theme: "dark", font: 16 };
   const PROMPT_CATEGORIES = ["Fantasy", "Mystery", "Science Fiction", "Realistic Fiction", "Horror (mild)", "Adventure", "Comedy", "Drama", "Historical", "Surreal"];
 
   let client = null;
@@ -22,7 +22,6 @@
   let currentPrefs = { ...PREF_DEFAULTS };
   let promptCache = [];
   let toastHandle = null;
-  let reportTargetUser = null;
 
   function toast(message) {
     const el = $("toast");
@@ -72,17 +71,17 @@
   function syncSettingsControls() {
     $("pref-players").value = String(currentPrefs.players);
     $("pref-minutes").value = String(currentPrefs.minutes);
-    $("pref-words").value = String(currentPrefs.words);
+    $("pref-characters").value = String(currentPrefs.characters);
     $("pref-theme").value = currentPrefs.theme;
     $("pref-font").value = String(currentPrefs.font);
     if (currentProfile) $("settings-username").value = currentProfile.username || "";
   }
   function updateQueueSummary() {
     const p = currentPrefs;
-    safeText($("queue-summary"), `${p.players} writers · ${p.minutes} minutes · ${Number(p.words).toLocaleString()}-word limit`);
+    safeText($("queue-summary"), `${p.players} writers · ${p.minutes} minutes · ${Number(p.characters).toLocaleString()}-character limit`);
     safeText($("queue-players"), `${p.players} writers`);
     safeText($("queue-time"), `${p.minutes} minutes`);
-    safeText($("queue-words"), `${Number(p.words).toLocaleString()} words`);
+    safeText($("queue-characters"), `${Number(p.characters).toLocaleString()} characters`);
   }
   function leagueFor(rating) {
     if (rating >= 2400) return "Grandmaster";
@@ -137,7 +136,7 @@
     $("refresh-match-btn").addEventListener("click", pollMatch);
     $("again-btn").addEventListener("click", () => { stopPolling(); activeMatch = null; showScreen("battle-card"); findMatch(); });
     $("judge-retry-btn").addEventListener("click", () => runJudge(true));
-    $("story-input").addEventListener("input", () => { updateWordCount(); saveDraft(false); });
+    $("story-input").addEventListener("input", () => { updateCharacterCount(); saveDraft(false); });
     $("settings-open").addEventListener("click", openSettings);
     $("quick-settings-open").addEventListener("click", openSettings);
     $("save-prefs-btn").addEventListener("click", saveMatchPreferences);
@@ -147,8 +146,6 @@
     $("change-password-btn").addEventListener("click", changePassword);
     $("prompts-open").addEventListener("click", openPrompts);
     $("history-refresh").addEventListener("click", loadHistory);
-    $("send-report-btn").addEventListener("click", sendReport);
-    $("moderation-open").addEventListener("click", openModeration);
     $("prompt-search").addEventListener("input", renderPromptLibrary);
     $("prompt-category-filter").addEventListener("change", renderPromptLibrary);
     $("prompt-difficulty-filter").addEventListener("change", renderPromptLibrary);
@@ -156,7 +153,7 @@
     document.querySelectorAll(".modal-backdrop").forEach(backdrop => backdrop.addEventListener("click", e => {
       if (e.target === backdrop) closeModal(backdrop.id);
     }));
-    document.addEventListener("keydown", e => { if (e.key === "Escape") { ["settings-modal", "prompts-modal", "report-modal", "moderation-modal"].forEach(closeModal); } });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") { ["settings-modal", "prompts-modal"].forEach(closeModal); } });
   }
 
   async function signup() {
@@ -273,10 +270,9 @@
   }
 
   async function loadProfile() {
-    const { data, error } = await client.from("profiles").select("id,username,rating,wins,losses,draws,is_moderator").eq("id", currentUser.id).single();
+    const { data, error } = await client.from("profiles").select("id,username,rating,wins,losses,draws").eq("id", currentUser.id).single();
     if (error) { toast("Profile could not load: " + error.message); return; }
     currentProfile = data;
-    $("moderation-open").classList.toggle("hidden", data.is_moderator !== true);
     const username = data.username || "Writer";
     safeText($("header-username"), username.toUpperCase());
     safeText($("header-avatar"), username.charAt(0).toUpperCase());
@@ -369,7 +365,7 @@
   function saveMatchPreferences() {
     currentPrefs.players = Number($("pref-players").value);
     currentPrefs.minutes = Number($("pref-minutes").value);
-    currentPrefs.words = Number($("pref-words").value);
+    currentPrefs.characters = Number($("pref-characters").value);
     savePrefs(); settingsMessage("Match settings saved. They will apply to your next queue."); toast("Match settings saved.");
   }
   function saveAppearancePreferences() {
@@ -413,7 +409,7 @@
       const { data, error } = await client.rpc("find_match", {
         p_target_players: currentPrefs.players,
         p_duration_seconds: currentPrefs.minutes * 60,
-        p_word_limit: currentPrefs.words
+        p_character_limit: currentPrefs.characters
       });
       if (error) throw error;
       const room = Array.isArray(data) ? data[0] : data;
@@ -460,7 +456,7 @@
       }
       else if (["completed", "expired"].includes(data.status)) {
         await finishDisplay(data);
-        if (data.status === "expired" || ["completed", "failed", "needs_review"].includes(data.judge_status)) stopPolling();
+        if (data.status === "expired" || ["completed", "failed", "blocked"].includes(data.judge_status)) stopPolling();
       }
       else if (data.status === "cancelled") { stopPolling(); activeMatch = null; showScreen("battle-card"); toast("That room was closed. Start another search."); }
     } catch (e) { console.warn("Match refresh:", e.message); }
@@ -492,7 +488,7 @@
     safeText($("match-id"), `MATCH ${match.id.slice(0, 8).toUpperCase()}`);
     safeText($("live-room-count"), `${data.members.length} writers in this match`);
     safeText($("submission-progress"), `${data.submissions.length} / ${data.members.length} submitted`);
-    safeText($("word-limit-label"), match.word_limit || currentPrefs.words);
+    safeText($("character-limit-label"), Number(match.character_limit || currentPrefs.characters).toLocaleString());
     deadlineMs = new Date(match.deadline_at).getTime();
     submissionSent = Boolean(mine.data);
     if (mine.data) {
@@ -505,7 +501,7 @@
       if ($("story-input").dataset.match !== match.id) {
         $("story-input").value = draft || "";
         $("story-input").dataset.match = match.id;
-        updateWordCount();
+        updateCharacterCount();
       }
       showScreen("editor-card");
     }
@@ -528,14 +524,21 @@
     tick(); clockHandle = window.setInterval(tick, 1000);
   }
 
-  function countWords(text) { const value = text.trim(); return value ? value.split(/\s+/).length : 0; }
-  function updateWordCount() {
-    const count = countWords($("story-input").value);
-    safeText($("word-count"), count);
-    const limit = activeMatch?.word_limit || currentPrefs.words;
+  function countCharacters(text) { return Array.from(text).length; }
+  function updateCharacterCount() {
+    const input = $("story-input");
+    const limit = activeMatch?.character_limit || currentPrefs.characters || 10000;
+    const chars = Array.from(input.value);
+    if (chars.length > limit) {
+      input.value = chars.slice(0, limit).join("");
+    }
+    const count = countCharacters(input.value);
+    safeText($("character-count"), count.toLocaleString());
     const disabled = submissionSent || count < 1 || count > limit || busy;
     $("submit-btn").disabled = disabled;
-    $("editor-status").textContent = count > limit ? `Please stay under ${limit} words.` : "Your draft autosaves in this browser.";
+    $("editor-status").textContent = count > limit
+      ? `Please stay within ${limit.toLocaleString()} characters.`
+      : `${(limit - count).toLocaleString()} characters remaining · Draft autosaves in this browser.`;
   }
   function saveDraft(showToast = true) {
     if (!activeMatch?.id || submissionSent) return;
@@ -545,9 +548,9 @@
   async function submitStory(override = null, automatic = false) {
     if (!activeMatch || submissionSent || busy) return;
     const body = (override ?? $("story-input").value).trim();
-    const limit = activeMatch.word_limit || currentPrefs.words;
-    if (!body) return toast("Write at least one word before submitting.");
-    if (countWords(body) > limit) return toast(`Your story must be ${limit} words or fewer.`);
+    const limit = activeMatch.character_limit || currentPrefs.characters || 10000;
+    if (!body) return toast("Write something before submitting.");
+    if (countCharacters(body) > limit) return toast(`Your story must be ${limit.toLocaleString()} characters or fewer.`);
     setBusy(true, ["submit-btn"]); safeText($("submit-btn"), "Submitting...");
     try {
       const { error } = await client.rpc("submit_story", { p_match_id: activeMatch.id, p_body: body });
@@ -556,7 +559,7 @@
       showScreen("opponent-wait-card"); toast(automatic ? "Time is up. Your draft was submitted." : "Story submitted. Waiting for the room.");
       pollMatch();
     } catch (e) { toast(e.message || "Could not submit your story."); }
-    finally { setBusy(false, ["submit-btn"]); safeText($("submit-btn"), "Submit story →"); updateWordCount(); }
+    finally { setBusy(false, ["submit-btn"]); safeText($("submit-btn"), "Submit story →"); updateCharacterCount(); }
   }
 
   async function leaveMatch(silent = false) {
@@ -582,7 +585,7 @@
     const ids = matchMembers.map(m => m.user_id);
     const [{ data: profiles }, { data: submissions }] = await Promise.all([
       client.from("profiles").select("id,username").in("id", ids),
-      match.judge_status === "needs_review"
+      match.judge_status === "blocked"
         ? Promise.resolve({ data: [], error: null })
         : client.from("submissions").select("user_id,body,submitted_at").eq("match_id", match.id)
     ]);
@@ -593,17 +596,17 @@
     const ratingChanges = new Map((match.judge_result?.rating_changes || []).map(r => [r.user_id, r]));
     const ordered = matchMembers.map(m => ({ ...m, username: profileById.get(m.user_id) || "Writer", body: submissionById.get(m.user_id) || "No story was submitted.", evaluation: evalById.get(m.user_id), rating: ratingChanges.get(m.user_id) }));
     safeText($("result-title"), match.status === "expired" ? "Time is up." : "The room has finished.");
-    safeText($("result-subtitle"), `${ordered.length} writers · ${match.judge_status === "completed" ? "AI results are ready" : "Stories are ready for judging"}`);
+    safeText($("result-subtitle"), `${ordered.length} writers · ${match.judge_status === "completed" ? "AI results are ready" : match.judge_status === "blocked" ? "Safety filter stopped this match" : "Stories are ready for judging"}`);
     renderJudgeStatus(match);
     renderRanking(ordered, match.judge_result);
-    if (match.judge_status === "needs_review") {
-      $("story-results").innerHTML = '<div class="needs-review-note">Entries are temporarily hidden while a moderator reviews a safety report. The automated filter may make mistakes; no rating changes have been made.</div>';
+    if (match.judge_status === "blocked") {
+      $("story-results").textContent = "This match was stopped by the automated safety filter. Stories are not revealed, no scores were issued, and ratings were not changed. Start a new match with age-appropriate fictional writing.";
     } else {
       renderStories(ordered);
     }
-    const canJudge = match.status === "completed" && !["completed", "processing", "needs_review"].includes(match.judge_status);
+    const canJudge = match.status === "completed" && !["completed", "processing", "blocked"].includes(match.judge_status);
     $("judge-retry-btn").classList.toggle("hidden", !canJudge);
-    if (match.status === "completed" && match.judge_status !== "completed" && match.judge_status !== "processing" && match.judge_status !== "needs_review") runJudge(false);
+    if (match.status === "completed" && match.judge_status !== "completed" && match.judge_status !== "processing" && match.judge_status !== "blocked") runJudge(false);
   }
 
   function renderJudgeStatus(match) {
@@ -612,7 +615,7 @@
     if (match.judge_status === "completed") { box.classList.add("done"); box.innerHTML = '<span class="status-dot"></span><span>AI judging complete · scores and ratings saved.</span>'; }
     else if (match.judge_status === "processing") { box.innerHTML = '<span class="status-dot"></span><span>AI judge is reading the stories and comparing the rubric…</span>'; }
     else if (match.judge_status === "failed") { box.classList.add("error"); box.innerHTML = '<span class="status-dot"></span><span>AI judging failed. You can retry after checking the API setup.</span>'; }
-    else if (match.judge_status === "needs_review") { box.classList.add("error"); box.innerHTML = '<span class="status-dot"></span><span>Some content was held by the safety filter. A moderator must review it. No rating changes were applied.</span>'; }
+    else if (match.judge_status === "blocked") { box.classList.add("error"); box.textContent = "The automated safety filter stopped this match. No stories were revealed, no scores were issued, and no ratings changed."; }
     else if (match.status === "expired") { box.classList.add("error"); box.innerHTML = '<span class="status-dot"></span><span>Match expired before a full room submission. No rating change was applied.</span>'; }
     else { box.innerHTML = '<span class="status-dot"></span><span>AI judge will score the stories now…</span>'; }
   }
@@ -674,116 +677,8 @@
       const title = document.createElement("h4"); title.textContent = `${entry.username}${entry.user_id === currentUser.id ? " · YOU" : ""}`;
       const body = document.createElement("p"); body.textContent = entry.body;
       card.append(title, body);
-      if (entry.user_id !== currentUser.id) {
-        const report = document.createElement("button"); report.className = "story-report-button"; report.type = "button"; report.textContent = "Report this entry";
-        report.addEventListener("click", () => {
-          reportTargetUser = entry.user_id;
-          $("report-intro").textContent = `Report ${entry.username}'s entry. Reports are private and visible to the site moderator.`;
-          $("report-details").value = ""; $("report-feedback").textContent = "";
-          $("report-modal").classList.remove("hidden");
-        });
-        card.appendChild(report);
-      }
       container.appendChild(card);
     });
-  }
-
-  async function openModeration() {
-    if (currentProfile?.is_moderator !== true) return toast("Moderator access is required.");
-    $("moderation-modal").classList.remove("hidden");
-    await loadModerationQueue();
-  }
-
-  async function loadModerationQueue() {
-    const list = $("moderation-list");
-    list.replaceChildren();
-    const loading = document.createElement("p"); loading.className = "muted-note"; loading.textContent = "Loading open reports…"; list.appendChild(loading);
-    const { data: reports, error } = await client.from("reports")
-      .select("id,match_id,reporter_id,target_user_id,reason,details,source,status,created_at")
-      .eq("status", "open").order("created_at", { ascending: false }).limit(40);
-    if (error) { safeText(list, `Could not load reports: ${error.message}`); return; }
-    list.replaceChildren();
-    if (!reports?.length) { const empty = document.createElement("p"); empty.className = "muted-note"; empty.textContent = "No open reports. The queue is clear."; list.appendChild(empty); return; }
-    const ids = [...new Set(reports.map(r => r.match_id))];
-    const userIds = [...new Set(reports.flatMap(r => [r.reporter_id, r.target_user_id]).filter(Boolean))];
-    const [{ data: profiles }, { data: matches }, { data: submissions }] = await Promise.all([
-      client.from("profiles").select("id,username").in("id", userIds),
-      client.from("matches").select("id,status,judge_status,moderation_approved").in("id", ids),
-      client.from("submissions").select("match_id,user_id,body").in("match_id", ids)
-    ]);
-    const names = new Map((profiles || []).map(p => [p.id, p.username]));
-    const matchMap = new Map((matches || []).map(m => [m.id, m]));
-    const storyMap = new Map((submissions || []).map(s => [`${s.match_id}:${s.user_id}`, s.body]));
-    reports.forEach(report => {
-      const match = matchMap.get(report.match_id);
-      const card = document.createElement("article"); card.className = "moderation-report-card";
-      const heading = document.createElement("div"); heading.className = "moderation-report-heading";
-      const title = document.createElement("b"); title.textContent = `${report.source === "automated_moderation" ? "Automated safety hold" : "Player report"} · ${names.get(report.target_user_id) || "Unknown writer"}`;
-      const meta = document.createElement("small"); meta.textContent = `${report.reason.replaceAll("_", " ")} · ${new Date(report.created_at).toLocaleString()}`;
-      heading.append(title, meta);
-      const details = document.createElement("p"); details.textContent = report.details || "No extra details provided.";
-      const story = document.createElement("blockquote"); story.className = "moderation-story";
-      story.textContent = storyMap.get(`${report.match_id}:${report.target_user_id}`) || "The entry is unavailable.";
-      card.append(heading, details, story);
-      const actions = document.createElement("div"); actions.className = "moderation-actions";
-      if (report.source === "automated_moderation" && match?.judge_status === "needs_review" && !match.moderation_approved) {
-        const blockedBeforeAi = (report.details || "").includes("not sent to the AI judge or moderation API");
-        if (!blockedBeforeAi) {
-          const allow = document.createElement("button"); allow.className = "secondary-btn"; allow.textContent = "Approve & run AI judge";
-          allow.addEventListener("click", () => moderateHeldMatch(report.match_id, "approve"));
-          actions.appendChild(allow);
-        }
-        const reject = document.createElement("button"); reject.className = "secondary-btn danger-btn"; reject.textContent = "Reject & cancel match";
-        reject.addEventListener("click", () => moderateHeldMatch(report.match_id, "reject"));
-        actions.appendChild(reject);
-      } else {
-        const close = document.createElement("button"); close.className = "secondary-btn"; close.textContent = "Mark report reviewed";
-        close.addEventListener("click", () => closeReport(report.id)); actions.append(close);
-      }
-      card.appendChild(actions); list.appendChild(card);
-    });
-  }
-
-  async function moderateHeldMatch(matchId, action) {
-    const prompt = action === "approve"
-      ? "Approve this entry and let the AI judge the match?"
-      : "Reject the held entry and cancel the match without awarding ratings?";
-    if (!window.confirm(prompt)) return;
-    const { error } = await client.rpc("moderate_held_match", { p_match_id: matchId, p_action: action, p_notes: action === "reject" ? "Removed after moderator review." : "" });
-    if (error) return toast(error.message);
-    toast(action === "approve" ? "Match approved. Participants can refresh to see AI judging." : "Match cancelled after review.");
-    await loadModerationQueue();
-  }
-
-  async function closeReport(reportId) {
-    const { error } = await client.rpc("moderate_report", { p_report_id: reportId, p_status: "reviewed" });
-    if (error) return toast(error.message);
-    toast("Report marked reviewed."); await loadModerationQueue();
-  }
-
-  async function sendReport() {
-    if (!activeMatch?.id || !reportTargetUser) return;
-    const reason = $("report-reason").value;
-    const details = $("report-details").value.trim();
-    $("send-report-btn").disabled = true;
-    $("report-feedback").textContent = "Sending report...";
-    try {
-      const { error } = await client.rpc("report_story", {
-        p_match_id: activeMatch.id,
-        p_target_user: reportTargetUser,
-        p_reason: reason,
-        p_details: details
-      });
-      if (error) throw error;
-      $("report-feedback").textContent = "Report sent. Thank you for helping keep Ink Arena respectful.";
-      toast("Report sent to the site moderator.");
-      window.setTimeout(() => closeModal("report-modal"), 1000);
-      reportTargetUser = null;
-    } catch (e) {
-      $("report-feedback").textContent = e.message || "Could not send report.";
-    } finally {
-      $("send-report-btn").disabled = false;
-    }
   }
 
   async function runJudge(userRequested) {
@@ -811,8 +706,8 @@
         }
         throw new Error(data.error);
       }
-      if (data?.needsReview) {
-        toast(data.message || "Entries were held for moderator review.");
+      if (data?.blocked) {
+        toast(data.message || "The automatic safety filter stopped this match. No ratings changed.");
       } else {
         toast("AI judging has finished.");
       }

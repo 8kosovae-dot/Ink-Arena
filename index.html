@@ -44,13 +44,13 @@
           <input id="email-input" type="email" autocomplete="email" placeholder="Email address" required aria-label="Email address">
           <input id="password-input" type="password" minlength="8" autocomplete="new-password" placeholder="Password (8+ characters)" required aria-label="Password">
           <input id="confirm-password-input" type="password" minlength="8" autocomplete="new-password" placeholder="Confirm password (sign-up only)" aria-label="Confirm password">
-          <label class="consent-row wide" for="signup-consent"><input id="signup-consent" type="checkbox"><span>I confirm I am at least 13. If I am under 18, I have permission from a parent or guardian. I understand my submitted stories are shown to my match and sent to the AI judging service for scoring.</span></label>
+          <label class="consent-row wide" for="signup-consent"><input id="signup-consent" type="checkbox"><span>I confirm I am at least 13. If I am under 18, I have permission from a parent or guardian. I understand my submitted stories are visible to match participants and sent to Groq for automated safety screening and AI judging.</span></label>
           <div class="auth-actions"><button class="primary-btn" id="signup-btn" type="button">Create account</button><button class="secondary-btn" id="login-btn" type="submit">Log in</button></div>
           <div class="auth-utility"><button class="text-btn" id="resend-btn" type="button">Resend confirmation</button><button class="text-btn" id="reset-password-btn" type="button">Forgot password?</button></div>
           <div class="auth-message" id="auth-message" role="status" aria-live="polite"></div>
         </form>
       </section>
-      <div class="signed-in-strip hidden" id="signed-in-strip"><div>Signed in as <b id="signed-in-name">Writer</b><small> · Your email is private</small></div><div class="strip-actions"><button class="secondary-btn hidden" id="moderation-open">Moderation</button><button class="secondary-btn" id="logout-btn">Log out</button></div></div>
+      <div class="signed-in-strip hidden" id="signed-in-strip"><div>Signed in as <b id="signed-in-name">Writer</b><small> · Your email is private</small></div><div class="strip-actions"><button class="secondary-btn" id="logout-btn">Log out</button></div></div>
 
       <section class="stats-grid hidden" id="stats-grid" aria-label="Your statistics">
         <article class="stat-card"><span class="stat-label">YOUR RATING</span><strong id="rating-stat">1200</strong><span class="stat-foot">AI-JUDGED ELO</span></article>
@@ -69,8 +69,8 @@
               <div class="versus"><span>VS</span><i></i></div>
               <div class="player-block"><div class="player-avatar opponent-avatar">✒</div><b>Other writers</b><small>GROUP MATCH</small></div>
             </div>
-            <div class="queue-summary" id="queue-summary">4 writers · 10 minutes · 500-word limit</div>
-            <div class="battle-info"><div><span class="info-label">PLAYERS</span><b id="queue-players">4 writers</b></div><div><span class="info-label">TIME LIMIT</span><b id="queue-time">10 minutes</b></div><div><span class="info-label">WORD LIMIT</span><b id="queue-words">500 words</b></div></div>
+            <div class="queue-summary" id="queue-summary">4 writers · 10 minutes · 10,000-character limit</div>
+            <div class="battle-info"><div><span class="info-label">PLAYERS</span><b id="queue-players">4 writers</b></div><div><span class="info-label">TIME LIMIT</span><b id="queue-time">10 minutes</b></div><div><span class="info-label">CHARACTER LIMIT</span><b id="queue-characters">10,000 characters</b></div></div>
             <button class="primary-btn full-btn" id="start-btn">Find a writing battle <span>→</span></button>
             <div class="below-action"><span class="muted-note">Match settings can be changed in Settings.</span><button class="text-btn" id="quick-settings-open">Customize match</button></div>
           </div>
@@ -79,8 +79,8 @@
             <div class="editor-header"><div><div class="eyebrow">YOUR CHALLENGE</div><h3 id="prompt-title">The last message</h3><span class="prompt-meta" id="prompt-meta">Fantasy · Intermediate</span></div><div class="timer" id="timer" aria-live="polite">10:00</div></div>
             <div class="prompt-box"><span class="prompt-label">SHARED WRITING PROMPT</span><p id="prompt-text"></p></div>
             <div class="room-strip"><span id="live-room-count">4 writers in this match</span><span id="submission-progress">0 / 4 submitted</span></div>
-            <label class="sr-only" for="story-input">Your story</label><textarea id="story-input" maxlength="12000" placeholder="Every great story starts with a sentence..."></textarea>
-            <div class="editor-footer"><span><b id="word-count">0</b> / <span id="word-limit-label">500</span> words</span><span id="editor-status">Autosave is on for this browser.</span></div>
+            <label class="sr-only" for="story-input">Your story</label><textarea id="story-input" maxlength="20000" placeholder="Every great story starts with a sentence..."></textarea>
+            <div class="editor-footer"><span><b id="character-count">0</b> / <span id="character-limit-label">10,000</span> characters</span><span id="editor-status">Autosave is on for this browser.</span></div>
             <div class="editor-actions"><button class="primary-btn" id="submit-btn" disabled>Submit story <span>→</span></button><button class="secondary-btn" id="save-draft-btn">Save draft</button></div>
             <button class="text-btn" id="leave-match-btn">Leave this match</button>
           </div>
@@ -99,10 +99,10 @@
         <aside class="side-column">
           <section class="side-card" id="leaderboard"><div class="side-heading"><div><div class="eyebrow">02 / THE CLIMB</div><h3>Leaderboard</h3></div><span class="trophy">♜</span></div><div id="leaderboard-list"><p class="empty-history">Loading rankings...</p></div><p class="fine-print">Ratings update after AI-judged group matches.</p></section>
           <section class="side-card"><div class="side-heading"><div><div class="eyebrow">03 / YOUR PROGRESS</div><h3>Recent matches</h3></div><button class="text-btn" id="history-refresh">Refresh</button></div><div id="history-list" class="history-list"><p class="empty-history">Your match history will appear here.</p></div></section>
-          <section class="side-card" id="how-it-works"><div class="eyebrow">04 / HOW IT WORKS</div><h3>Four moves to glory</h3><ol class="rules-list"><li><span>1</span><div><b>Join a room</b><small>Match with 2–8 writers who chose the same room size.</small></div></li><li><span>2</span><div><b>Get the prompt</b><small>Everyone receives the same creative challenge.</small></div></li><li><span>3</span><div><b>Write and submit</b><small>Beat the clock and make every word count.</small></div></li><li><span>4</span><div><b>Get judged</b><small>AI scores each story and updates the leaderboard.</small></div></li></ol></section>
+          <section class="side-card" id="how-it-works"><div class="eyebrow">04 / HOW IT WORKS</div><h3>Four moves to glory</h3><ol class="rules-list"><li><span>1</span><div><b>Join a room</b><small>Match with 2–8 writers who chose the same room size.</small></div></li><li><span>2</span><div><b>Get the prompt</b><small>Everyone receives the same creative challenge.</small></div></li><li><span>3</span><div><b>Write and submit</b><small>Beat the clock and use your 10,000-character space wisely.</small></div></li><li><span>4</span><div><b>Get judged</b><small>AI scores each story and updates the leaderboard.</small></div></li></ol></section>
         </aside>
       </section>
-      <section class="public-note"><b>Community guidelines</b><span>Keep stories age-appropriate and respectful. Do not submit personal information, private messages, or content that targets another player. Matches are public to their participants after completion.</span></section>
+      <section class="public-note"><b>Community guidelines</b><span>Keep stories age-appropriate and respectful. Do not submit personal information, private messages, or content that targets another player. Stories are shared only with match participants. Automated safety screening can block a match; blocked stories are not revealed or scored.</span></section>
     </main>
     <footer><a class="brand footer-brand" href="#home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></a><span>WRITE. COMPETE. IMPROVE.</span><span>Beta v3.0</span></footer>
   </div>
@@ -111,7 +111,7 @@
     <div class="modal-card"><div class="modal-header"><div><div class="eyebrow">PERSONALIZE YOUR ARENA</div><h2 id="settings-title">Settings</h2></div><button class="icon-btn" data-close="settings-modal" aria-label="Close settings">×</button></div>
       <div class="settings-grid">
         <section class="settings-section"><h3>Account</h3><label for="settings-username">Public username</label><input id="settings-username" maxlength="20" autocomplete="off"><button class="secondary-btn" id="save-username-btn">Save username</button><p class="muted-note">3–20 letters, numbers, or underscores.</p></section>
-        <section class="settings-section"><h3>Match defaults</h3><label for="pref-players">Writers per match</label><select id="pref-players"><option value="2">2 writers</option><option value="3">3 writers</option><option value="4" selected>4 writers</option><option value="5">5 writers</option><option value="6">6 writers</option><option value="8">8 writers</option></select><label for="pref-minutes">Time limit</label><select id="pref-minutes"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select><label for="pref-words">Word limit</label><select id="pref-words"><option value="250">250 words</option><option value="400">400 words</option><option value="500" selected>500 words</option><option value="750">750 words</option><option value="1000">1,000 words</option></select><button class="secondary-btn" id="save-prefs-btn">Save match settings</button></section>
+        <section class="settings-section"><h3>Match defaults</h3><label for="pref-players">Writers per match</label><select id="pref-players"><option value="2">2 writers</option><option value="3">3 writers</option><option value="4" selected>4 writers</option><option value="5">5 writers</option><option value="6">6 writers</option><option value="8">8 writers</option></select><label for="pref-minutes">Time limit</label><select id="pref-minutes"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option></select><label for="pref-characters">Character limit</label><select id="pref-characters"><option value="2500">2,500 characters</option><option value="5000">5,000 characters</option><option value="7500">7,500 characters</option><option value="10000" selected>10,000 characters</option></select><button class="secondary-btn" id="save-prefs-btn">Save match settings</button></section>
         <section class="settings-section"><h3>Appearance</h3><label for="pref-theme">Theme</label><select id="pref-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Use device setting</option></select><label for="pref-font">Writing editor text</label><select id="pref-font"><option value="16">Comfortable</option><option value="18">Large</option><option value="20">Extra large</option></select><button class="secondary-btn" id="save-look-btn">Save appearance</button></section>
         <section class="settings-section"><h3>Account security</h3><p class="muted-note">Send yourself a secure reset email, then choose a new password here. Ink Arena never stores your password in its own settings.</p><button class="secondary-btn" id="settings-reset-password">Email me a password reset</button><label for="settings-new-password">New password (8+ characters)</label><input id="settings-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="New password"><label for="settings-confirm-new-password">Confirm new password</label><input id="settings-confirm-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again"><button class="secondary-btn" id="change-password-btn">Update password</button></section>
       </div>
@@ -126,24 +126,7 @@
       <p class="fine-print">The live matchmaking queue selects one shared prompt for everyone in the room.</p>
     </div>
   </div>
-  <div class="modal-backdrop hidden" id="moderation-modal" role="dialog" aria-modal="true" aria-labelledby="moderation-title">
-    <div class="modal-card prompts-modal-card"><div class="modal-header"><div><div class="eyebrow">TRUST & SAFETY</div><h2 id="moderation-title">Moderation queue</h2></div><button class="icon-btn" data-close="moderation-modal" aria-label="Close moderation">×</button></div>
-      <p class="muted-note">This area is for the adult site moderator. Review reported writing respectfully and never share private information from a report.</p>
-      <div id="moderation-list" class="moderation-list"><p class="muted-note">Loading reports…</p></div>
-      <p class="fine-print">Automated flags can be mistaken. Allow a held match only after reviewing the flagged entry. Rejecting a held match cancels it without awarding ratings.</p>
-    </div>
-  </div>
-  <div class="modal-backdrop hidden" id="report-modal" role="dialog" aria-modal="true" aria-labelledby="report-title">
-    <div class="modal-card report-modal-card"><div class="modal-header"><div><div class="eyebrow">KEEP THE ARENA RESPECTFUL</div><h2 id="report-title">Report a story</h2></div><button class="icon-btn" data-close="report-modal" aria-label="Close report">×</button></div>
-      <p class="muted-note" id="report-intro">Reports are private and visible to the site moderator.</p>
-      <label for="report-reason">Why are you reporting this entry?</label>
-      <select id="report-reason"><option value="inappropriate_content">Inappropriate content</option><option value="harassment">Harassment or targeting</option><option value="personal_information">Personal or private information</option><option value="other">Something else</option></select>
-      <label for="report-details">Additional details (optional)</label>
-      <textarea id="report-details" maxlength="500" rows="4" placeholder="Add context without repeating sensitive content."></textarea>
-      <div class="report-actions"><button class="primary-btn" id="send-report-btn">Send report</button><button class="secondary-btn" data-close="report-modal">Cancel</button></div>
-      <p class="modal-feedback" id="report-feedback" role="status"></p>
-    </div>
-  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
