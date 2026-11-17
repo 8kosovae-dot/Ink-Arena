@@ -192,6 +192,7 @@
     $("start-btn").addEventListener("click", findMatch);
     $("host-room-btn").addEventListener("click", hostPrivateRoom);
     $("join-room-btn").addEventListener("click", joinPrivateRoom);
+    $("start-private-room-btn").addEventListener("click", startPrivateRoom);
     $("join-room-code").addEventListener("input", () => { $("join-room-code").value = $("join-room-code").value.toUpperCase().replace(/[^A-F0-9]/g, "").slice(0, 8); });
     $("copy-room-code").addEventListener("click", copyRoomCode);
     $("cancel-queue-btn").addEventListener("click", leaveMatch);
@@ -475,7 +476,7 @@
     }
     safeText($("host-room-hint"), isGuest
       ? "Guests can join private rooms by code. Sign in with a regular account to host."
-      : "Hosting requires a regular Ink Arena account. Guests can join with a code.");
+      : "Share the code with up to 29 others. Start when at least 2 writers are ready.");
   }
 
   async function loadLeaderboard(reset = true) {
@@ -621,7 +622,8 @@
     if (currentProfile.is_guest || currentUser.is_anonymous) return toast("Only a regular signed-in account can host. Guests can join with a code.");
     if (busy) return;
     if (activeMatch && ["waiting", "active"].includes(activeMatch.status)) return toast("Leave your current match before hosting another room.");
-    const targetPlayers = Number($("private-room-players").value);
+    // Private rooms have one shared capacity of 30; the host no longer chooses a room size.
+    const targetPlayers = 30;
     const durationSeconds = Number(currentPrefs.minutes) * 60;
     setBusy(true, ["host-room-btn", "join-room-btn", "start-btn"]);
     safeText($("host-room-btn"), "Creating room…");
@@ -646,6 +648,26 @@
     } finally {
       setBusy(false, ["host-room-btn", "join-room-btn", "start-btn"]);
       syncPrivateRoomAccess();
+    }
+  }
+
+  async function startPrivateRoom() {
+    if (!activeMatch?.id || !activeMatch.is_private || activeMatch.room_host_id !== currentUser?.id) {
+      return toast("Only the room host can start this private match.");
+    }
+    const button = $("start-private-room-btn");
+    if (busy || !button || button.classList.contains("hidden")) return;
+    button.disabled = true;
+    safeText(button, "Starting match…");
+    try {
+      const { error } = await client.rpc("start_private_room", { p_match_id: activeMatch.id });
+      if (error) throw error;
+      await pollMatch();
+      toast("Your private match has started.");
+    } catch (e) {
+      toast(e.message || "Could not start the private match.");
+      safeText(button, "Start match with current players →");
+      button.disabled = false;
     }
   }
 
@@ -764,12 +786,17 @@
     safeText($("room-count"), `${count} / ${target} writers`);
     safeText($("waiting-title"), match.is_private ? "Your private room is ready" : (count >= target ? "Starting your match..." : "Finding your writing room..."));
     safeText($("waiting-copy"), match.is_private
-      ? `${target - count} more ${target - count === 1 ? "writer" : "writers"} needed. Share the code below; the match starts automatically when the room is full.`
+      ? "Share the code with your group. The room holds up to 30 writers, and the host can start whenever at least 2 players are ready."
       : `Your room is filling up. ${target - count} more ${target - count === 1 ? "writer" : "writers"} needed. Keep this tab open.`);
     safeText($("match-id"), `ROOM ${match.id.slice(0, 8).toUpperCase()}`);
     const codePanel = $("room-code-panel");
     codePanel.classList.toggle("hidden", !match.is_private || !match.room_code);
     if (match.is_private && match.room_code) safeText($("room-code-value"), match.room_code);
+    const startButton = $("start-private-room-btn");
+    const canHostStart = Boolean(match.is_private && match.room_host_id === currentUser?.id && count >= 2);
+    startButton.classList.toggle("hidden", !canHostStart);
+    startButton.disabled = false;
+    safeText(startButton, canHostStart ? `Start match with ${count} players →` : "Start match with current players →");
     safeText($("cancel-queue-btn"), match.is_private && match.room_host_id === currentUser?.id ? "Close private room" : (match.is_private ? "Leave room" : "Leave queue"));
     showScreen("waiting-card");
   }

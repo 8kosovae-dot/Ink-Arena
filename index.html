@@ -136,17 +136,14 @@
                 <h2 id="private-room-title">Private rooms</h2>
                 <p>Invite your own group to a writing match. Host a room and share its code, or join with a code from a friend.</p>
               </div>
-              <span class="private-room-icon">INVITE ONLY</span>
             </div>
             <div class="private-room-grid">
               <div class="private-room-action host-room-action">
-                <div class="private-room-action-title"><span class="private-room-step">01 / HOST</span><div><h3>Create a room</h3><p>Set the room size, then share the code with your group. The match time follows the mode selected above.</p></div></div>
-                <label for="private-room-players">Players in your room</label>
-                <select id="private-room-players">
-                  <option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="8">8 players</option><option value="10">10 players</option><option value="12">12 players</option><option value="16">16 players</option><option value="20">20 players</option><option value="25">25 players</option><option value="30">30 players</option>
-                </select>
+                <div class="private-room-action-title"><span class="private-room-step">01 / HOST</span><div><h3>Create a room</h3><p>Set the match time above, create your room, and share its code. You can invite up to 29 other writers.</p></div></div>
+                <label class="private-room-capacity-label">Room capacity</label>
+                <div class="private-room-capacity-value"><strong>30</strong><span>players maximum <i>·</i> no room-size setup needed</span></div>
                 <button class="primary-btn full-btn" id="host-room-btn" type="button">Create private room <span>→</span></button>
-                <p class="private-room-hint" id="host-room-hint">Hosting is available to registered accounts. Guests can join with an invite code.</p>
+                <p class="private-room-hint" id="host-room-hint">The host can start the match as soon as at least 2 players have joined.</p>
               </div>
               <div class="private-room-action join-room-action">
                 <div class="private-room-action-title"><span class="private-room-step">02 / JOIN</span><div><h3>Join a room</h3><p>Already have an invite? Enter the 8-character room code shared by the host.</p></div></div>
@@ -159,7 +156,7 @@
             <p class="private-room-feedback" id="private-room-feedback" role="status" aria-live="polite"></p>
           </section>
 
-          <div class="waiting-card hidden" id="waiting-card"><div class="waiting-spinner"></div><div class="eyebrow">MATCHMAKING</div><h3 id="waiting-title">Finding your writing room...</h3><p id="waiting-copy">Waiting for more writers to join your room.</p><div class="room-progress"><div class="room-progress-bar" id="room-progress-bar"></div></div><div class="room-count" id="room-count">1 / 4 writers</div><div class="room-code-panel hidden" id="room-code-panel"><span>SHARE THIS ROOM CODE</span><strong id="room-code-value">--------</strong><button class="secondary-btn" id="copy-room-code" type="button">Copy code</button></div><button class="secondary-btn danger-btn" id="cancel-queue-btn">Leave queue</button></div>
+          <div class="waiting-card hidden" id="waiting-card"><div class="waiting-spinner"></div><div class="eyebrow">MATCHMAKING</div><h3 id="waiting-title">Finding your writing room...</h3><p id="waiting-copy">Waiting for more writers to join your room.</p><div class="room-progress"><div class="room-progress-bar" id="room-progress-bar"></div></div><div class="room-count" id="room-count">1 / 4 writers</div><div class="room-code-panel hidden" id="room-code-panel"><span>SHARE THIS ROOM CODE</span><strong id="room-code-value">--------</strong><button class="secondary-btn" id="copy-room-code" type="button">Copy code</button></div><button class="primary-btn full-btn hidden" id="start-private-room-btn" type="button">Start match with current players →</button><button class="secondary-btn danger-btn" id="cancel-queue-btn">Leave queue</button></div>
           <div class="editor-card hidden" id="editor-card">
             <div class="editor-header"><div><div class="eyebrow">YOUR CHALLENGE</div><h3 id="prompt-title">The last message</h3><span class="prompt-meta" id="prompt-meta">Fantasy · Intermediate</span></div><div class="timer" id="timer" aria-live="polite">10:00</div></div>
             <div class="prompt-box"><span class="prompt-label">SHARED WRITING PROMPT</span><p id="prompt-text"></p><div class="prompt-skip-row"><button class="secondary-btn" id="skip-prompt-btn">Vote to skip prompt</button><span id="skip-prompt-status" role="status">Everyone must agree. The timer restarts with a new prompt.</span></div></div>
@@ -195,7 +192,7 @@
         <section class="page-view" id="page-about" aria-labelledby="about-title">
           <div class="page-heading"><div><div class="eyebrow">HOW IT WORKS</div><h1 id="about-title">About Ink Arena</h1><p>A straightforward guide to matches, scoring, rankings, and the community.</p></div></div>
           <div class="about-layout">
-            <article class="about-card"><div class="eyebrow">01 / PLAYING A MATCH</div><h2>Choose a room size and time</h2><p>Use public matchmaking for a quick match, or host a private room and share its 8-character code. Private rooms support 2–30 writers, including guests. Everyone receives the same prompt. The timer starts when the room fills.</p><ul><li><b>Lightning · 1 minute:</b> up to 500 characters</li><li><b>5 minutes:</b> up to 2,500 characters</li><li><b>10 minutes:</b> up to 5,000 characters</li><li><b>15 minutes:</b> up to 7,500 characters</li><li><b>20 minutes:</b> up to 10,000 characters</li><li><b>30 minutes:</b> up to 10,000 characters</li></ul><p>The timer begins when the room is full. At zero, each writer's latest autosaved text is submitted automatically.</p></article>
+            <article class="about-card"><div class="eyebrow">01 / PLAYING A MATCH</div><h2>Choose a mode and time</h2><p>Use public matchmaking for a quick match, or host a private room and share its 8-character code. Private rooms hold up to 30 writers, including guests. The host can start once at least 2 people have joined, or the room starts automatically when all 30 seats fill. Everyone receives the same prompt.</p><ul><li><b>Lightning · 1 minute:</b> up to 500 characters</li><li><b>5 minutes:</b> up to 2,500 characters</li><li><b>10 minutes:</b> up to 5,000 characters</li><li><b>15 minutes:</b> up to 7,500 characters</li><li><b>20 minutes:</b> up to 10,000 characters</li><li><b>30 minutes:</b> up to 10,000 characters</li></ul><p>The timer begins when the host starts a private room or public matchmaking fills. At zero, each writer's latest autosaved text is submitted automatically.</p></article>
             <article class="about-card"><div class="eyebrow">02 / PROMPT SKIP</div><h2>Change a prompt together</h2><p>Every player can vote to skip the current prompt. The prompt changes only when everyone votes yes. A random new prompt is chosen and the full timer restarts. Voting closes after anyone submits.</p></article>
             <article class="about-card about-rubric"><div class="eyebrow">03 / AI GRADING · 120 POINTS</div><h2>Six criteria, 20 points each</h2>
               <div class="rubric-row"><b>Craft & clarity <span>20 pts</span></b><p>Clear, effective sentences, vivid details, and a consistent writing voice.</p></div>
