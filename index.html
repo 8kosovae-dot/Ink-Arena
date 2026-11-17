@@ -134,23 +134,21 @@
               <div>
                 <div class="eyebrow">PLAY WITH YOUR OWN GROUP</div>
                 <h2 id="private-room-title">Private rooms</h2>
-                <p>Invite your own group to a writing match. Host a room and share its code, or join with a code from a friend.</p>
+                <p>Host a writing match and share its code, or enter a code to join.</p>
               </div>
             </div>
             <div class="private-room-grid">
               <div class="private-room-action host-room-action">
-                <div class="private-room-action-title"><span class="private-room-step">01 / HOST</span><div><h3>Create a room</h3><p>Set the match time above, create your room, and share its code. You can invite up to 29 other writers.</p></div></div>
-                <label class="private-room-capacity-label">Room capacity</label>
-                <div class="private-room-capacity-value"><strong>30</strong><span>players maximum <i>·</i> no room-size setup needed</span></div>
+                <div class="private-room-action-title"><span class="private-room-step">01 / HOST</span><div><h3>Create a room</h3><p>Choose the match time above, then share your room code.</p></div></div>
+                <div class="private-room-capacity-value" aria-label="Maximum room capacity: 30 players"><strong>30 players</strong></div>
                 <button class="primary-btn full-btn" id="host-room-btn" type="button">Create private room <span>→</span></button>
-                <p class="private-room-hint" id="host-room-hint">The host can start the match as soon as at least 2 players have joined.</p>
               </div>
               <div class="private-room-action join-room-action">
-                <div class="private-room-action-title"><span class="private-room-step">02 / JOIN</span><div><h3>Join a room</h3><p>Already have an invite? Enter the 8-character room code shared by the host.</p></div></div>
+                <div class="private-room-action-title"><span class="private-room-step">02 / JOIN</span><div><h3>Join a room</h3><p>Enter the 8-character code shared by the host.</p></div></div>
                 <label for="join-room-code">Room code</label>
                 <input id="join-room-code" type="text" maxlength="8" minlength="8" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="ENTER CODE" aria-describedby="join-room-help">
                 <button class="secondary-btn full-btn" id="join-room-btn" type="button">Join private room <span>→</span></button>
-                <p class="private-room-hint" id="join-room-help">Registered players and temporary guests can join.</p>
+                <p class="private-room-hint" id="join-room-help">Registered players and guests can join.</p>
               </div>
             </div>
             <p class="private-room-feedback" id="private-room-feedback" role="status" aria-live="polite"></p>
@@ -212,7 +210,7 @@
       </div>
     </main>
 
-    <footer><button class="brand footer-brand" data-page="home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></button><span>WRITE. COMPETE. IMPROVE.</span><span>Beta v3.6</span></footer>
+    <footer><button class="brand footer-brand" data-page="home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></button><span>WRITE. COMPETE. IMPROVE.</span><span>Beta v3.6.3</span></footer>
   </div>
 
   <div class="modal-backdrop hidden" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">

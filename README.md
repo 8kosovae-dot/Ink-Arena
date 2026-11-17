@@ -1,30 +1,17 @@
-# Ink Arena v3.6
+# Ink Arena v3.6.3
 
-Ink Arena is a competitive writing platform with public matchmaking, private invite-code rooms, AI judging, ELO rankings, saved stories, and a public Gallery.
+This release refines the Private Rooms panel and fixes the private-room creation SQL mismatch.
 
-## v3.6 additions
+## Update an existing v3.6.2 project
 
-- Private rooms for 2–30 writers. A regular registered player hosts and shares an eight-character code.
-- Registered players and temporary anonymous guests can join by entering the code.
-- Any guest in a match makes that match unranked, so no participant gains or loses ELO or match-record points.
-- Public matchmaking stays separate and supports 2–8 writers.
-- Google sign-in has been removed; email/password and guest access remain.
-- AI judging now accepts up to 30 entries per room.
+1. Back up the repository and database.
+2. Run `database/fix-private-room-create-v3.6.3.sql` in Supabase SQL Editor.
+3. Replace `index.html`, `style.css`, and `app.js` in the GitHub Pages repository.
+4. Keep your existing `config.js` unchanged.
+5. Hard-refresh the website after GitHub Pages deploys.
 
-## Project files
+See `UPGRADE-V3.6.3.md` for details. The SQL patch assumes the v3.6 private-room migration is already installed.
 
-- `index.html`, `style.css`, `app.js`: GitHub Pages website.
-- `config.js`: Supabase Project URL and browser-safe Publishable key only. Keep your existing configured file.
-- `database/upgrade-v3.6-private-rooms.sql`: migration for an existing v3.5 database.
-- `supabase/functions/judge-match/index.ts`: Supabase Edge Function used for AI judging.
-- `UPGRADE-V3.6.md`: installation, Google sign-in removal, room usage and test checklist.
+## Existing app setup
 
-## Update existing v3.5
-
-1. Back up the website repository and Supabase project.
-2. Run `database/upgrade-v3.6-private-rooms.sql` once in Supabase SQL Editor.
-3. Replace the three website files in your GitHub Pages repository. Keep `config.js` unchanged.
-4. Deploy the updated `judge-match` Edge Function.
-5. Hard-refresh the published site.
-
-Never put Supabase secret/service-role keys or AI-provider API keys in browser files or GitHub.
+The project uses static HTML/CSS/JavaScript, Supabase Auth and Database, and the existing server-side judging function. No build step is required for GitHub Pages.

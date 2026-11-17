@@ -52,6 +52,12 @@
     el.textContent = message;
     el.style.color = error ? "var(--red)" : "var(--gold)";
   }
+  function privateRoomFeedback(message, error = false) {
+    const el = $("private-room-feedback");
+    if (!el) return;
+    safeText(el, message);
+    el.classList.toggle("is-error", Boolean(error));
+  }
   function settingsMessage(message, error = false) {
     const el = $("settings-feedback");
     el.textContent = message;
@@ -471,12 +477,9 @@
     const isGuest = Boolean(currentProfile?.is_guest || currentUser?.is_anonymous);
     const button = $("host-room-btn");
     if (button) {
-      button.disabled = isGuest || !currentUser;
-      button.textContent = isGuest ? "Regular account required to host" : "Create private room →";
+      button.disabled = isGuest || !currentUser || busy;
+      safeText(button, isGuest ? "Regular account required to host" : "Create private room →");
     }
-    safeText($("host-room-hint"), isGuest
-      ? "Guests can join private rooms by code. Sign in with a regular account to host."
-      : "Share the code with up to 29 others. Start when at least 2 writers are ready.");
   }
 
   async function loadLeaderboard(reset = true) {
@@ -618,14 +621,50 @@
   }
 
   async function hostPrivateRoom() {
-    if (!currentUser || !currentProfile) return toast("Sign in or continue as a guest before using private rooms.");
-    if (currentProfile.is_guest || currentUser.is_anonymous) return toast("Only a regular signed-in account can host. Guests can join with a code.");
+    if (!client) {
+      privateRoomFeedback("Supabase is not configured. Check config.js.", true);
+      return;
+    }
+    if (!currentUser) {
+      privateRoomFeedback("Sign in with a regular account to create a room.", true);
+      toast("Sign in with a regular account to create a room.");
+      return;
+    }
     if (busy) return;
-    if (activeMatch && ["waiting", "active"].includes(activeMatch.status)) return toast("Leave your current match before hosting another room.");
-    // Private rooms have one shared capacity of 30; the host no longer chooses a room size.
+
+    // The session/profile can still be loading immediately after sign-in.
+    let hostProfile = currentProfile;
+    if (!hostProfile) {
+      try {
+        const { data, error } = await client.from("profiles")
+          .select("id,is_guest")
+          .eq("id", currentUser.id)
+          .single();
+        if (error) throw error;
+        hostProfile = data;
+      } catch (error) {
+        const message = `Could not verify your account: ${error.message || "profile unavailable"}`;
+        privateRoomFeedback(message, true);
+        toast(message);
+        return;
+      }
+    }
+    if (hostProfile?.is_guest || currentUser.is_anonymous) {
+      privateRoomFeedback("Guests can join by code. A regular account is required to host.", true);
+      toast("A regular account is required to host a private room.");
+      return;
+    }
+    if (activeMatch && ["waiting", "active"].includes(activeMatch.status)) {
+      privateRoomFeedback("Leave your current match before creating another room.", true);
+      toast("Leave your current match before hosting another room.");
+      return;
+    }
+
+    // Private rooms always allow up to 30 total players; the host does not choose a cap.
     const targetPlayers = 30;
     const durationSeconds = Number(currentPrefs.minutes) * 60;
     setBusy(true, ["host-room-btn", "join-room-btn", "start-btn"]);
+    privateRoomFeedback("Creating your private room…");
     safeText($("host-room-btn"), "Creating room…");
     try {
       const { data, error } = await client.rpc("host_private_room", {
@@ -633,18 +672,34 @@
         p_duration_seconds: durationSeconds,
         p_character_limit: characterLimitForMinutes(currentPrefs.minutes)
       });
-      if (error) throw error;
+      if (error) {
+        const databaseMessage = error.message || "";
+        if (/gen_random_bytes/i.test(databaseMessage)) {
+          throw new Error("Supabase is still using the older room-creation SQL. Run database/fix-private-room-create-v3.6.3.sql in Supabase SQL Editor, then try again.");
+        }
+        if (/PGRST202|could not find the function|function public\.host_private_room/i.test(databaseMessage)) {
+          throw new Error("The private-room database function is missing or out of date. Run database/fix-private-room-create-v3.6.3.sql in Supabase SQL Editor, then try again.");
+        }
+        throw error;
+      }
       const room = Array.isArray(data) ? data[0] : data;
-      if (!room?.match_id || !room?.room_code) throw new Error("The database did not return a room code. Run the private-room SQL migration first.");
+      if (!room?.match_id || !room?.room_code) {
+        throw new Error("Supabase did not return a room code. Run database/fix-private-room-create-v3.6.3.sql and try again.");
+      }
       const { data: match, error: fetchError } = await client.from("matches").select("*").eq("id", room.match_id).single();
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        throw new Error(`The room was created, but Ink Arena could not open it: ${fetchError.message}`);
+      }
       activeMatch = match;
+      privateRoomFeedback("");
       navigateTo("arena");
       await updateWaitingRoom(match);
       beginPolling();
       toast(`Private room created. Share code ${room.room_code}.`);
-    } catch (e) {
-      toast(e.message || "Could not create a private room.");
+    } catch (error) {
+      const message = error.message || "Could not create a private room. Check your Supabase setup and try again.";
+      privateRoomFeedback(message, true);
+      toast(message);
     } finally {
       setBusy(false, ["host-room-btn", "join-room-btn", "start-btn"]);
       syncPrivateRoomAccess();
