@@ -19,6 +19,7 @@
   let pollHandle = null;
   let clockHandle = null;
   let busy = false;
+  let authMode = "login";
   let submissionSent = false;
   let deadlineMs = null;
   let currentPrompt = null;
@@ -67,6 +68,8 @@
       if (node) node.classList.toggle("hidden", screen !== id);
     });
     $("mode-card").classList.toggle("hidden", id !== "battle-card");
+    const privateRoomCard = $("private-room-card");
+    if (privateRoomCard) privateRoomCard.classList.toggle("hidden", id !== "battle-card");
   }
   function getEmailRedirectUrl() { return new URL("./", window.location.href).href; }
   function prefKey() { return `inkArenaPrefs_${currentUser?.id || "guest"}`; }
@@ -97,12 +100,23 @@
   function syncArenaModeControls() {
     $("arena-players").value = String(currentPrefs.players);
     $("arena-minutes").value = String(currentPrefs.minutes);
+    document.querySelectorAll("[data-player-choice]").forEach(button => {
+      const selected = Number(button.dataset.playerChoice) === Number(currentPrefs.players);
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+    document.querySelectorAll("[data-time-choice]").forEach(button => {
+      const selected = Number(button.dataset.timeChoice) === Number(currentPrefs.minutes);
+      button.classList.toggle("is-selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
   }
   function characterLimitForMinutes(minutes) { return Math.min(10000, Number(minutes) * 500); }
   function updateArenaMode() {
     currentPrefs.players = Number($("arena-players").value);
     currentPrefs.minutes = Number($("arena-minutes").value);
     savePrefs();
+    syncArenaModeControls();
   }
   function navigateTo(page, updateHistory = true) {
     const validPages = ["home", "arena", "rankings", "profile", "gallery", "about"];
@@ -163,13 +177,23 @@
   }
 
   function bindEvents() {
-    $("auth-form").addEventListener("submit", login);
+    setAuthMode("login");
+    $("auth-form").addEventListener("submit", event => {
+      if (authMode === "signup") { event.preventDefault(); signup(); }
+      else login(event);
+    });
+    $("auth-mode-login").addEventListener("click", () => setAuthMode("login"));
+    $("auth-mode-signup").addEventListener("click", () => setAuthMode("signup"));
     $("signup-btn").addEventListener("click", signup);
     $("guest-btn").addEventListener("click", continueAsGuest);
     $("resend-btn").addEventListener("click", resendConfirmation);
     $("reset-password-btn").addEventListener("click", resetPassword);
     $("logout-btn").addEventListener("click", logout);
     $("start-btn").addEventListener("click", findMatch);
+    $("host-room-btn").addEventListener("click", hostPrivateRoom);
+    $("join-room-btn").addEventListener("click", joinPrivateRoom);
+    $("join-room-code").addEventListener("input", () => { $("join-room-code").value = $("join-room-code").value.toUpperCase().replace(/[^A-F0-9]/g, "").slice(0, 8); });
+    $("copy-room-code").addEventListener("click", copyRoomCode);
     $("cancel-queue-btn").addEventListener("click", leaveMatch);
     $("leave-match-btn").addEventListener("click", leaveMatch);
     $("submit-btn").addEventListener("click", () => submitStory());
@@ -192,6 +216,14 @@
     $("settings-open").addEventListener("click", openSettings);
     $("arena-players").addEventListener("change", updateArenaMode);
     $("arena-minutes").addEventListener("change", updateArenaMode);
+    document.querySelectorAll("[data-player-choice]").forEach(button => button.addEventListener("click", () => {
+      $("arena-players").value = button.dataset.playerChoice;
+      updateArenaMode();
+    }));
+    document.querySelectorAll("[data-time-choice]").forEach(button => button.addEventListener("click", () => {
+      $("arena-minutes").value = button.dataset.timeChoice;
+      updateArenaMode();
+    }));
     $("pref-theme").addEventListener("change", saveAppearancePreferences);
     $("pref-font").addEventListener("change", saveAppearancePreferences);
     $("save-username-btn").addEventListener("click", saveUsername);
@@ -227,6 +259,23 @@
       if (e.target === backdrop) closeModal(backdrop.id);
     }));
     document.addEventListener("keydown", e => { if (e.key === "Escape") { ["settings-modal", "prompts-modal", "story-title-modal"].forEach(closeModal); } });
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode === "signup" ? "signup" : "login";
+    const creating = authMode === "signup";
+    $("auth-mode-login").classList.toggle("active", !creating);
+    $("auth-mode-signup").classList.toggle("active", creating);
+    $("auth-mode-login").setAttribute("aria-pressed", String(!creating));
+    $("auth-mode-signup").setAttribute("aria-pressed", String(creating));
+    $("auth-username-field").classList.toggle("hidden", !creating);
+    $("auth-confirm-field").classList.toggle("hidden", !creating);
+    $("login-btn").classList.toggle("hidden", creating);
+    $("signup-btn").classList.toggle("hidden", !creating);
+    $("auth-utility").classList.toggle("hidden", creating);
+    $("password-input").setAttribute("autocomplete", creating ? "new-password" : "current-password");
+    $("password-input").placeholder = creating ? "Create a password (8+ characters)" : "Your password";
+    authMessage("");
   }
 
   async function signup() {
@@ -369,6 +418,7 @@
     syncArenaModeControls();
     navigateTo(currentPage, false);
     await loadProfile();
+    syncPrivateRoomAccess();
     await Promise.all([loadLeaderboard(), loadPromptLibrary(), loadHistory()]);
     if (currentPage === "gallery") await loadGallery();
     await resumeMatch();
@@ -414,6 +464,18 @@
       : "Your profile is public to other signed-in Ink Arena players.");
     $("settings-username").value = username;
     await loadSavedStories();
+  }
+
+  function syncPrivateRoomAccess() {
+    const isGuest = Boolean(currentProfile?.is_guest || currentUser?.is_anonymous);
+    const button = $("host-room-btn");
+    if (button) {
+      button.disabled = isGuest || !currentUser;
+      button.textContent = isGuest ? "Regular account required to host" : "Create private room →";
+    }
+    safeText($("host-room-hint"), isGuest
+      ? "Guests can join private rooms by code. Sign in with a regular account to host."
+      : "Hosting requires a regular Ink Arena account. Guests can join with a code.");
   }
 
   async function loadLeaderboard(reset = true) {
@@ -554,6 +616,79 @@
     }
   }
 
+  async function hostPrivateRoom() {
+    if (!currentUser || !currentProfile) return toast("Sign in or continue as a guest before using private rooms.");
+    if (currentProfile.is_guest || currentUser.is_anonymous) return toast("Only a regular signed-in account can host. Guests can join with a code.");
+    if (busy) return;
+    if (activeMatch && ["waiting", "active"].includes(activeMatch.status)) return toast("Leave your current match before hosting another room.");
+    const targetPlayers = Number($("private-room-players").value);
+    const durationSeconds = Number(currentPrefs.minutes) * 60;
+    setBusy(true, ["host-room-btn", "join-room-btn", "start-btn"]);
+    safeText($("host-room-btn"), "Creating room…");
+    try {
+      const { data, error } = await client.rpc("host_private_room", {
+        p_target_players: targetPlayers,
+        p_duration_seconds: durationSeconds,
+        p_character_limit: characterLimitForMinutes(currentPrefs.minutes)
+      });
+      if (error) throw error;
+      const room = Array.isArray(data) ? data[0] : data;
+      if (!room?.match_id || !room?.room_code) throw new Error("The database did not return a room code. Run the private-room SQL migration first.");
+      const { data: match, error: fetchError } = await client.from("matches").select("*").eq("id", room.match_id).single();
+      if (fetchError) throw fetchError;
+      activeMatch = match;
+      navigateTo("arena");
+      await updateWaitingRoom(match);
+      beginPolling();
+      toast(`Private room created. Share code ${room.room_code}.`);
+    } catch (e) {
+      toast(e.message || "Could not create a private room.");
+    } finally {
+      setBusy(false, ["host-room-btn", "join-room-btn", "start-btn"]);
+      syncPrivateRoomAccess();
+    }
+  }
+
+  async function joinPrivateRoom() {
+    if (!currentUser) return toast("First choose Continue as guest or sign in, then enter the room code.");
+    if (busy) return;
+    if (activeMatch && ["waiting", "active"].includes(activeMatch.status)) return toast("Leave your current match before joining another room.");
+    const code = $("join-room-code").value.trim().toUpperCase();
+    if (!/^[A-F0-9]{8}$/.test(code)) return toast("Enter the 8-character room code.");
+    setBusy(true, ["join-room-btn", "host-room-btn", "start-btn"]);
+    safeText($("join-room-btn"), "Joining room…");
+    try {
+      const { data, error } = await client.rpc("join_private_room", { p_code: code });
+      if (error) throw error;
+      const room = Array.isArray(data) ? data[0] : data;
+      if (!room?.match_id) throw new Error("The room could not be found. Check the code and try again.");
+      const { data: match, error: fetchError } = await client.from("matches").select("*").eq("id", room.match_id).single();
+      if (fetchError) throw fetchError;
+      $("join-room-code").value = "";
+      activeMatch = match;
+      navigateTo("arena");
+      if (match.status === "waiting") { await updateWaitingRoom(match); beginPolling(); }
+      else if (match.status === "active") { await handleActiveMatch(match); beginPolling(); }
+      toast(match.status === "active" ? "You joined. The match is underway." : "You joined the private room.");
+    } catch (e) {
+      toast(e.message || "Could not join that room.");
+    } finally {
+      setBusy(false, ["join-room-btn", "host-room-btn", "start-btn"]);
+      syncPrivateRoomAccess();
+    }
+  }
+
+  async function copyRoomCode() {
+    const code = $("room-code-value")?.textContent?.trim();
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      toast("Room code copied.");
+    } catch {
+      toast(`Room code: ${code}`);
+    }
+  }
+
   async function findMatch() {
     if (!currentUser || busy) return;
     navigateTo("arena");
@@ -614,7 +749,7 @@
         await finishDisplay(data);
         if (data.status === "expired" || ["completed", "failed", "blocked"].includes(data.judge_status)) stopPolling();
       }
-      else if (data.status === "cancelled") { stopPolling(); activeMatch = null; showScreen("battle-card"); toast("That room was closed. Start another search."); }
+      else if (data.status === "cancelled") { stopPolling(); activeMatch = null; showScreen("battle-card"); toast(data.is_private ? "The host closed this private room." : "That room was closed. Start another search."); }
     } catch (e) { console.warn("Match refresh:", e.message); }
   }
 
@@ -627,9 +762,15 @@
     const pct = Math.min(100, count / target * 100);
     $("room-progress-bar").style.width = `${pct}%`;
     safeText($("room-count"), `${count} / ${target} writers`);
-    safeText($("waiting-title"), count >= target ? "Starting your match..." : "Finding your writing room...");
-    safeText($("waiting-copy"), `Your room is filling up. ${target - count} more ${target - count === 1 ? "writer" : "writers"} needed. Keep this tab open.`);
+    safeText($("waiting-title"), match.is_private ? "Your private room is ready" : (count >= target ? "Starting your match..." : "Finding your writing room..."));
+    safeText($("waiting-copy"), match.is_private
+      ? `${target - count} more ${target - count === 1 ? "writer" : "writers"} needed. Share the code below; the match starts automatically when the room is full.`
+      : `Your room is filling up. ${target - count} more ${target - count === 1 ? "writer" : "writers"} needed. Keep this tab open.`);
     safeText($("match-id"), `ROOM ${match.id.slice(0, 8).toUpperCase()}`);
+    const codePanel = $("room-code-panel");
+    codePanel.classList.toggle("hidden", !match.is_private || !match.room_code);
+    if (match.is_private && match.room_code) safeText($("room-code-value"), match.room_code);
+    safeText($("cancel-queue-btn"), match.is_private && match.room_host_id === currentUser?.id ? "Close private room" : (match.is_private ? "Leave room" : "Leave queue"));
     showScreen("waiting-card");
   }
 
@@ -641,7 +782,8 @@
     safeText($("prompt-title"), data.prompt.title);
     safeText($("prompt-text"), data.prompt.body);
     safeText($("prompt-meta"), `${data.prompt.category || "Creative"} · ${data.prompt.difficulty || "Intermediate"}`);
-    safeText($("match-id"), `MATCH ${match.id.slice(0, 8).toUpperCase()}`);
+    safeText($("match-id"), `${match.is_private ? "PRIVATE ROOM" : "MATCH"} ${match.id.slice(0, 8).toUpperCase()}`);
+    $("room-code-panel").classList.add("hidden");
     safeText($("live-room-count"), `${data.members.length} writers in this match`);
     safeText($("submission-progress"), `${data.submissions.length} / ${data.members.length} submitted`);
     safeText($("character-limit-label"), Number(match.character_limit || characterLimitForMinutes(match.duration_seconds / 60)).toLocaleString());
