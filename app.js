@@ -6,6 +6,10 @@
   const configured = CONFIG.supabaseUrl && CONFIG.supabasePublishableKey &&
     !String(CONFIG.supabaseUrl).includes("PASTE_") && !String(CONFIG.supabasePublishableKey).includes("PASTE_");
   const PREF_DEFAULTS = { players: 2, minutes: 10, theme: "dark", font: 18 };
+  const TIME_OPTIONS = [1, 5, 10, 15, 20, 30];
+  const LEADERBOARD_PAGE_SIZE = 25;
+  const GALLERY_PAGE_SIZE = 20;
+  const SAVED_STORIES_PAGE_SIZE = 20;
   const PROMPT_CATEGORIES = ["Fantasy", "Mystery", "Science Fiction", "Realistic Fiction", "Horror", "Adventure", "Comedy", "Drama", "Historical", "Surreal"];
 
   let client = null;
@@ -23,6 +27,17 @@
   let promptCache = [];
   let toastHandle = null;
   let currentPage = "home";
+  let draftSyncHandle = null;
+  let draftSyncPromise = Promise.resolve();
+  let expiryInProgress = false;
+  let titleDialogResolve = null;
+  let leaderboardOffset = 0;
+  let leaderboardLoading = false;
+  let galleryOffset = 0;
+  let savedStoriesOffset = 0;
+  let savedStoriesLoading = false;
+  let galleryHasMore = false;
+  let galleryLoading = false;
 
   function toast(message) {
     const el = $("toast");
@@ -47,7 +62,7 @@
     ids.forEach(id => { const el = $(id); if (el) el.disabled = value || el.dataset.locked === "true"; });
   }
   function showScreen(id) {
-    ["battle-card", "waiting-card", "editor-card", "opponent-wait-card", "results-card"].forEach(screen => {
+    ["waiting-card", "editor-card", "opponent-wait-card", "results-card"].forEach(screen => {
       const node = $(screen);
       if (node) node.classList.toggle("hidden", screen !== id);
     });
@@ -60,14 +75,13 @@
     try { currentPrefs = { ...PREF_DEFAULTS, ...JSON.parse(localStorage.getItem(prefKey()) || "{}") }; }
     catch { currentPrefs = { ...PREF_DEFAULTS }; }
     if (![2, 3, 4, 5, 6, 8].includes(Number(currentPrefs.players))) currentPrefs.players = PREF_DEFAULTS.players;
-    if (![5, 10, 15, 20].includes(Number(currentPrefs.minutes))) currentPrefs.minutes = PREF_DEFAULTS.minutes;
+    if (!TIME_OPTIONS.includes(Number(currentPrefs.minutes))) currentPrefs.minutes = PREF_DEFAULTS.minutes;
     if (![18, 20, 22].includes(Number(currentPrefs.font))) currentPrefs.font = PREF_DEFAULTS.font;
-    currentPrefs.characters = characterLimitForMinutes(currentPrefs.minutes);
     applyAppearance();
     syncSettingsControls();
     syncArenaModeControls();
   }
-  function savePrefs() { localStorage.setItem(prefKey(), JSON.stringify(currentPrefs)); updateQueueSummary(); applyAppearance(); }
+  function savePrefs() { localStorage.setItem(prefKey(), JSON.stringify(currentPrefs)); applyAppearance(); }
   function applyAppearance() {
     const theme = currentPrefs.theme === "system"
       ? (window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark")
@@ -83,19 +97,11 @@
   function syncArenaModeControls() {
     $("arena-players").value = String(currentPrefs.players);
     $("arena-minutes").value = String(currentPrefs.minutes);
-    updateQueueSummary();
   }
   function characterLimitForMinutes(minutes) { return Math.min(10000, Number(minutes) * 500); }
-  function updateQueueSummary() {
-    const p = currentPrefs;
-    const cap = characterLimitForMinutes(p.minutes);
-    safeText($("queue-summary"), `${p.players} ${p.players === 1 ? "player" : "players"} · ${p.minutes} minutes`);
-    safeText($("queue-character-hint"), `Up to ${cap.toLocaleString()} characters`);
-  }
   function updateArenaMode() {
     currentPrefs.players = Number($("arena-players").value);
     currentPrefs.minutes = Number($("arena-minutes").value);
-    currentPrefs.characters = characterLimitForMinutes(currentPrefs.minutes);
     savePrefs();
   }
   function navigateTo(page, updateHistory = true) {
@@ -167,23 +173,47 @@
     $("cancel-queue-btn").addEventListener("click", leaveMatch);
     $("leave-match-btn").addEventListener("click", leaveMatch);
     $("submit-btn").addEventListener("click", () => submitStory());
-    $("save-draft-btn").addEventListener("click", saveDraft);
     $("refresh-match-btn").addEventListener("click", pollMatch);
     $("again-btn").addEventListener("click", () => { stopPolling(); activeMatch = null; showScreen("battle-card"); navigateTo("arena"); findMatch(); });
     $("judge-retry-btn").addEventListener("click", () => runJudge(true));
-    $("story-input").addEventListener("input", () => { updateCharacterCount(); saveDraft(false); });
+    $("story-input").addEventListener("input", () => { updateCharacterCount(); saveDraft(false); queueServerDraftSave(); });
+    // Prevent clipboard/drop insertion in the live-writing editor.
+    ["paste", "drop", "beforeinput"].forEach(type => $("story-input").addEventListener(type, event => {
+      if (type === "beforeinput" && !["insertFromPaste", "insertFromDrop", "insertFromYank"].includes(event.inputType)) return;
+      event.preventDefault();
+      toast("Pasting and dropping outside text is disabled during a battle. Write directly in the editor.");
+    }));
+    $("story-input").addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && ["v", "V"].includes(event.key) || (event.shiftKey && event.key === "Insert")) {
+        event.preventDefault();
+        toast("Pasting is disabled during a battle.");
+      }
+    });
     $("settings-open").addEventListener("click", openSettings);
     $("arena-players").addEventListener("change", updateArenaMode);
     $("arena-minutes").addEventListener("change", updateArenaMode);
-    $("save-look-btn").addEventListener("click", saveAppearancePreferences);
+    $("pref-theme").addEventListener("change", saveAppearancePreferences);
+    $("pref-font").addEventListener("change", saveAppearancePreferences);
     $("save-username-btn").addEventListener("click", saveUsername);
     $("settings-reset-password").addEventListener("click", resetPassword);
     $("change-password-btn").addEventListener("click", changePassword);
     $("prompts-open").addEventListener("click", openPrompts);
     $("history-refresh").addEventListener("click", loadHistory);
-    $("rankings-refresh").addEventListener("click", loadLeaderboard);
-    $("gallery-refresh").addEventListener("click", loadGallery);
-    $("saved-stories-refresh").addEventListener("click", loadSavedStories);
+    $("rankings-refresh").addEventListener("click", () => loadLeaderboard(true));
+    $("leaderboard-load-more").addEventListener("click", () => loadLeaderboard(false));
+    $("gallery-refresh").addEventListener("click", () => loadGallery(true));
+    $("gallery-load-more").addEventListener("click", () => loadGallery(false));
+    $("saved-stories-refresh").addEventListener("click", () => loadSavedStories(true));
+    $("saved-stories-load-more").addEventListener("click", () => loadSavedStories(false));
+    $("story-title-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const value = $("story-title-input").value.trim().slice(0, 100);
+      if (!value) { toast("Enter a story title."); return; }
+      const resolve = titleDialogResolve;
+      titleDialogResolve = null;
+      closeModal("story-title-modal");
+      if (resolve) resolve(value);
+    });
     $("skip-prompt-btn").addEventListener("click", voteSkipPrompt);
     document.querySelectorAll("[data-page]").forEach(button => button.addEventListener("click", event => {
       event.preventDefault(); navigateTo(button.dataset.page);
@@ -196,7 +226,7 @@
     document.querySelectorAll(".modal-backdrop").forEach(backdrop => backdrop.addEventListener("click", e => {
       if (e.target === backdrop) closeModal(backdrop.id);
     }));
-    document.addEventListener("keydown", e => { if (e.key === "Escape") { ["settings-modal", "prompts-modal"].forEach(closeModal); } });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") { ["settings-modal", "prompts-modal", "story-title-modal"].forEach(closeModal); } });
   }
 
   async function signup() {
@@ -386,22 +416,47 @@
     await loadSavedStories();
   }
 
-  async function loadLeaderboard() {
-    const container = $("leaderboard-list"); container.replaceChildren();
-    const { data, error } = await client.from("profiles").select("username,rating,wins,losses,draws").eq("is_guest", false).order("rating", { ascending: false }).limit(10);
-    if (error) { safeText(container, "Leaderboard unavailable: " + error.message); return; }
-    if (!data?.length) { safeText(container, "No writers yet. Be the first to join."); return; }
-    data.forEach((person, i) => {
-      const row = document.createElement("div"); row.className = "leader-row";
-      const rank = document.createElement("span"); rank.className = "rank"; rank.textContent = String(i + 1).padStart(2, "0");
-      const icon = document.createElement("span"); icon.className = "mini-avatar"; icon.textContent = (person.username || "W").charAt(0).toUpperCase();
-      const name = document.createElement("span"); name.className = "leader-name"; name.textContent = person.username || "Writer";
-      const sub = document.createElement("small"); sub.textContent = `${person.wins || 0}W · ${person.losses || 0}L · ${person.draws || 0}D`; name.appendChild(sub);
-      const rating = document.createElement("b"); rating.textContent = person.rating;
-      row.append(rank, icon, name, rating);
-      if (person.username === currentProfile?.username) row.classList.add("you-row");
-      container.appendChild(row);
-    });
+  async function loadLeaderboard(reset = true) {
+    const container = $("leaderboard-list");
+    const button = $("leaderboard-load-more");
+    if (!container || !client || leaderboardLoading) return;
+    leaderboardLoading = true;
+    try {
+      if (reset) { leaderboardOffset = 0; container.replaceChildren(); }
+      if (button) button.disabled = true;
+      const { data, error } = await client.from("profiles")
+        .select("username,rating,wins,losses,draws")
+        .eq("is_guest", false)
+        .order("rating", { ascending: false })
+        .order("username", { ascending: true })
+        .range(leaderboardOffset, leaderboardOffset + LEADERBOARD_PAGE_SIZE - 1);
+      if (error) {
+        if (reset) safeText(container, "Leaderboard unavailable: " + error.message);
+        if (button) button.classList.add("hidden");
+        return;
+      }
+      if (reset && !data?.length) {
+        safeText(container, "No ranked writers yet. Be the first to compete with an account.");
+        if (button) button.classList.add("hidden");
+        return;
+      }
+      (data || []).forEach((person, i) => {
+        const row = document.createElement("div"); row.className = "leader-row";
+        const rank = document.createElement("span"); rank.className = "rank"; rank.textContent = String(leaderboardOffset + i + 1).padStart(2, "0");
+        const icon = document.createElement("span"); icon.className = "mini-avatar"; icon.textContent = (person.username || "W").charAt(0).toUpperCase();
+        const name = document.createElement("span"); name.className = "leader-name"; name.textContent = person.username || "Writer";
+        const sub = document.createElement("small"); sub.textContent = `${person.wins || 0}W · ${person.losses || 0}L · ${person.draws || 0}D`; name.appendChild(sub);
+        const rating = document.createElement("b"); rating.textContent = person.rating;
+        row.append(rank, icon, name, rating);
+        if (person.username === currentProfile?.username) row.classList.add("you-row");
+        container.appendChild(row);
+      });
+      leaderboardOffset += (data || []).length;
+      if (button) button.classList.toggle("hidden", (data || []).length < LEADERBOARD_PAGE_SIZE);
+    } finally {
+      leaderboardLoading = false;
+      if (button) button.disabled = false;
+    }
   }
 
   async function loadHistory() {
@@ -421,7 +476,7 @@
       const right = document.createElement("b");
       const myResult = match.judge_result?.evaluations?.find(e => e.user_id === currentUser.id);
       const delta = match.judge_result?.rating_changes?.find(e => e.user_id === currentUser.id)?.delta;
-      right.textContent = myResult ? `${myResult.total}/100${match.judge_result?.unranked_match ? " · No ELO" : (Number.isFinite(delta) ? ` · ${delta > 0 ? "+" : ""}${delta}` : "")}` : (match.judge_status === "completed" ? "Judged" : match.status === "completed" ? "Judging" : "—");
+      right.textContent = myResult ? `${myResult.total}/${match.judge_result?.rubric_version === "ink-arena-rubric-v3" ? 120 : 100}${match.judge_result?.unranked_match ? " · No ELO" : (Number.isFinite(delta) ? ` · ${delta > 0 ? "+" : ""}${delta}` : "")}` : (match.judge_status === "completed" ? "Judged" : match.status === "completed" ? "Judging" : "—");
       if (Number(delta) > 0) right.className = "won"; else if (Number(delta) < 0) right.className = "lost";
       item.append(left, right); container.appendChild(item);
     });
@@ -457,11 +512,19 @@
   }
   function openSettings() { syncSettingsControls(); settingsMessage(""); $("settings-modal").classList.remove("hidden"); }
   function openPrompts() { $("prompts-modal").classList.remove("hidden"); renderPromptLibrary(); }
-  function closeModal(id) { $(id)?.classList.add("hidden"); }
+  function closeModal(id) {
+    $(id)?.classList.add("hidden");
+    if (id === "story-title-modal" && titleDialogResolve) {
+      const resolve = titleDialogResolve;
+      titleDialogResolve = null;
+      resolve(null);
+    }
+  }
   function saveAppearancePreferences() {
     currentPrefs.theme = $("pref-theme").value;
     currentPrefs.font = Number($("pref-font").value);
-    savePrefs(); settingsMessage("Appearance saved."); toast("Appearance updated.");
+    savePrefs();
+    settingsMessage("Appearance updated.");
   }
   async function saveUsername() {
     const username = $("settings-username").value.trim();
@@ -540,7 +603,7 @@
       activeMatch = data;
       if (data.status === "waiting") await updateWaitingRoom(data);
       else if (data.status === "active") {
-        if (data.deadline_at && Date.now() > new Date(data.deadline_at).getTime() + 22000) {
+        if (data.deadline_at && Date.now() >= new Date(data.deadline_at).getTime()) {
           await client.rpc("expire_match", { p_match_id: data.id });
           const { data: refreshed } = await client.from("matches").select("*").eq("id", data.id).single();
           if (refreshed) { activeMatch = refreshed; if (["completed", "expired"].includes(refreshed.status)) { await finishDisplay(refreshed); stopPolling(); return; } }
@@ -600,9 +663,10 @@
       $("submitted-progress-bar").style.width = `${pct}%`;
       safeText($("submitted-progress-label"), `${data.submissions.length} / ${data.members.length} writers submitted. Waiting for the rest of the room.`);
     } else {
-      const draft = localStorage.getItem(draftKey(match.id));
       if ($("story-input").dataset.match !== match.id) {
-        $("story-input").value = draft || "";
+        const localDraft = localStorage.getItem(draftKey(match.id)) || "";
+        const { data: remoteDraft } = await client.rpc("get_match_draft", { p_match_id: match.id });
+        $("story-input").value = localDraft || remoteDraft || "";
         $("story-input").dataset.match = match.id;
         updateCharacterCount();
       }
@@ -618,10 +682,9 @@
       const minutes = Math.floor(remaining / 60), seconds = remaining % 60;
       safeText($("timer"), `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`);
       $("timer").classList.toggle("urgent", remaining <= 60);
-      if (remaining === 0 && !submissionSent && !busy) {
+      if (remaining === 0 && !submissionSent && !expiryInProgress && !busy) {
         stopClock();
-        const text = $("story-input").value.trim() || "The clock ran out before I could finish this story.";
-        submitStory(text, true);
+        autoSubmitAtDeadline();
       }
     };
     tick(); clockHandle = window.setInterval(tick, 1000);
@@ -639,14 +702,48 @@
     safeText($("character-count"), count.toLocaleString());
     const disabled = submissionSent || count < 1 || count > limit || busy;
     $("submit-btn").disabled = disabled;
-    $("editor-status").textContent = count > limit
-      ? `Please stay within ${limit.toLocaleString()} characters.`
-      : `${(limit - count).toLocaleString()} characters remaining · Draft autosaves in this browser.`;
+    safeText($("editor-status"), "");
   }
-  function saveDraft(showToast = true) {
+  function saveDraft() {
     if (!activeMatch?.id || submissionSent) return;
     localStorage.setItem(draftKey(activeMatch.id), $("story-input").value);
-    if (showToast) toast("Draft saved in this browser.");
+  }
+  function queueServerDraftSave() {
+    if (!activeMatch?.id || submissionSent || !currentUser) return;
+    window.clearTimeout(draftSyncHandle);
+    const matchId = activeMatch.id;
+    const body = $("story-input").value;
+    draftSyncHandle = window.setTimeout(() => {
+      draftSyncPromise = draftSyncPromise.then(async () => {
+        if (activeMatch?.id !== matchId || submissionSent) return;
+        const { error } = await client.rpc("save_match_draft", { p_match_id: matchId, p_body: body });
+        if (error) console.warn("Draft sync:", error.message);
+      }).catch(error => console.warn("Draft sync:", error?.message || error));
+    }, 700);
+  }
+  async function autoSubmitAtDeadline() {
+    if (!activeMatch?.id || submissionSent || expiryInProgress) return;
+    expiryInProgress = true;
+    const matchId = activeMatch.id;
+    const text = $("story-input").value;
+    window.clearTimeout(draftSyncHandle);
+    safeText($("submitted-progress-label"), "Time is up. Submitting the latest saved writing for everyone…");
+    showScreen("opponent-wait-card");
+    try {
+      // Wait for older autosaves to finish, then flush the latest text before the
+      // expiry RPC atomically submits every active player's server-side draft.
+      await draftSyncPromise;
+      const { error: draftError } = await client.rpc("save_match_draft", { p_match_id: matchId, p_body: text });
+      if (draftError) console.warn("Final draft sync:", draftError.message);
+      const { data, error } = await client.rpc("expire_match", { p_match_id: matchId });
+      if (error) throw error;
+      if (data) { submissionSent = true; localStorage.removeItem(draftKey(matchId)); await pollMatch(); }
+    } catch (e) {
+      console.warn("Automatic submission:", e.message);
+      toast(e.message || "Automatic submission could not finish. Refresh the match status.");
+    } finally {
+      expiryInProgress = false;
+    }
   }
   async function submitStory(override = null, automatic = false) {
     if (!activeMatch || submissionSent || busy) return;
@@ -658,7 +755,7 @@
     try {
       const { error } = await client.rpc("submit_story", { p_match_id: activeMatch.id, p_body: body });
       if (error) throw error;
-      submissionSent = true; localStorage.removeItem(draftKey(activeMatch.id)); stopClock();
+      submissionSent = true; localStorage.removeItem(draftKey(activeMatch.id)); window.clearTimeout(draftSyncHandle); stopClock();
       showScreen("opponent-wait-card"); toast(automatic ? "Time is up. Your draft was submitted." : "Story submitted. Waiting for the room.");
       pollMatch();
     } catch (e) { toast(e.message || "Could not submit your story."); }
@@ -690,16 +787,17 @@
       client.from("profiles").select("id,username").in("id", ids),
       match.judge_status === "blocked"
         ? Promise.resolve({ data: [], error: null })
-        : client.from("submissions").select("user_id,body,submitted_at").eq("match_id", match.id),
+        : client.from("submissions").select("user_id,body,submitted_at,auto_submitted").eq("match_id", match.id),
       client.from("prompts").select("title").eq("id", match.prompt_id).maybeSingle()
     ]);
     const profileById = new Map((profiles || []).map(p => [p.id, p.username]));
-    const submissionById = new Map((submissions || []).map(s => [s.user_id, s.body]));
+    const submissionById = new Map((submissions || []).map(s => [s.user_id, s]));
     const evaluations = match.judge_result?.evaluations || [];
     const evalById = new Map(evaluations.map(e => [e.user_id, e]));
     const ratingChanges = new Map((match.judge_result?.rating_changes || []).map(r => [r.user_id, r]));
-    const ordered = matchMembers.map(m => ({ ...m, username: profileById.get(m.user_id) || "Writer", body: submissionById.get(m.user_id) || "No story was submitted.", evaluation: evalById.get(m.user_id), rating: ratingChanges.get(m.user_id) }));
-    safeText($("result-title"), match.status === "expired" ? "Time is up." : "The room has finished.");
+    const ordered = matchMembers.map(m => ({ ...m, username: profileById.get(m.user_id) || "Writer", body: submissionById.get(m.user_id)?.body || "No story submitted before time ran out.", autoSubmitted: Boolean(submissionById.get(m.user_id)?.auto_submitted), evaluation: evalById.get(m.user_id), rating: ratingChanges.get(m.user_id) }));
+    const hasAutoSubmittedEntry = (submissions || []).some(row => row.auto_submitted);
+    safeText($("result-title"), hasAutoSubmittedEntry ? "Time is up · stories submitted." : "The room has finished.");
     safeText($("result-subtitle"), `${ordered.length} writers · ${match.judge_status === "completed" ? "AI results are ready" : match.judge_status === "blocked" ? "Safety filter stopped this match" : "Stories are ready for judging"}`);
     renderJudgeStatus(match);
     renderRanking(ordered, match.judge_result);
@@ -736,9 +834,10 @@
       summary.append(label, copy); container.appendChild(summary);
     }
     scoreData.sort((a, b) => (b.total || 0) - (a.total || 0));
+    const maxScore = result?.rubric_version === "ink-arena-rubric-v3" ? 120 : 100;
     const winningScore = scoreData[0].total;
     const winningNames = entries.filter(e => scoreData.some(s => s.user_id === e.user_id && s.total === winningScore)).map(e => e.username);
-    winner.textContent = winningNames.length === 1 ? `🏆 WINNER: ${winningNames[0]} · ${winningScore}/100` : `🏆 TIE: ${winningNames.join(", ")} · ${winningScore}/100`;
+    winner.textContent = winningNames.length === 1 ? `🏆 WINNER: ${winningNames[0]} · ${winningScore}/${maxScore}` : `🏆 TIE: ${winningNames.join(", ")} · ${winningScore}/${maxScore}`;
     winner.classList.remove("hidden");
     scoreData.forEach((score, index) => {
       const who = entries.find(e => e.user_id === score.user_id);
@@ -750,12 +849,12 @@
       const delta = score.rating?.delta;
       rating.textContent = result?.unranked_match ? "Unranked guest match · no ELO changes" : (score.rating ? `${score.rating.old_rating} → ${score.rating.new_rating} ELO (${delta > 0 ? "+" : ""}${delta})` : "Rating pending");
       left.append(name, rating);
-      const points = document.createElement("strong"); points.className = "ranked-score"; points.textContent = `${score.total}/100`;
+      const points = document.createElement("strong"); points.className = "ranked-score"; points.textContent = `${score.total}/${maxScore}`;
       top.append(left, points); card.appendChild(top);
       const bars = document.createElement("div"); bars.className = "score-bars";
-      const labels = result?.rubric_version === "ink-arena-rubric-v2"
-        ? [["Craft & clarity", "craft"], ["Story & structure", "story"], ["Prompt fit", "prompt_fit"], ["Emotion & impact", "emotion"], ["Spelling & grammar", "spelling_grammar"]]
-        : [["Craft", "craft"], ["Story", "story"], ["Prompt fit", "prompt_fit"], ["Emotion", "emotion"], ["Originality", "originality"]];
+      const labels = result?.rubric_version === "ink-arena-rubric-v3"
+        ? [["Craft & clarity", "craft"], ["Story & structure", "story"], ["Prompt fit", "prompt_fit"], ["Emotion & impact", "emotion"], ["Originality", "originality"], ["Spelling & grammar", "spelling_grammar"]]
+        : [["Craft & clarity", "craft"], ["Story & structure", "story"], ["Prompt fit", "prompt_fit"], ["Emotion & impact", "emotion"], ["Spelling & grammar", "spelling_grammar"]];
       labels.forEach(([label, key]) => {
         const metric = document.createElement("div"); metric.className = "score-metric";
         const l = document.createElement("label"); l.textContent = label;
@@ -783,13 +882,14 @@
       const title = document.createElement("h4"); title.textContent = `${entry.username}${entry.user_id === currentUser.id ? " · YOUR STORY" : ""}`;
       const body = document.createElement("p"); body.textContent = entry.body;
       card.append(title, body);
-      if (entry.user_id === currentUser.id && actionsAllowed && !currentProfile?.is_guest && entry.body !== "No story was submitted.") {
+      if (entry.autoSubmitted) {
+        const tag = document.createElement("small"); tag.className = "auto-submit-tag"; tag.textContent = "Submitted automatically when time ran out"; card.appendChild(tag);
+      }
+      if (entry.user_id === currentUser.id && actionsAllowed && !currentProfile?.is_guest && entry.body !== "No story submitted before time ran out.") {
         const actions = document.createElement("div"); actions.className = "story-actions";
-        const save = document.createElement("button"); save.className = "secondary-btn"; save.textContent = "☆ Save to my profile";
+        const save = document.createElement("button"); save.className = "primary-btn"; save.textContent = "Save to My Stories";
         save.addEventListener("click", () => saveMyStory(match.id, promptTitle));
-        const publish = document.createElement("button"); publish.className = "secondary-btn"; publish.textContent = "Publish to Gallery";
-        publish.addEventListener("click", () => publishMyStory(match.id, promptTitle));
-        actions.append(save, publish); card.appendChild(actions);
+        actions.append(save); card.appendChild(actions);
       } else if (entry.user_id === currentUser.id && currentProfile?.is_guest) {
         const note = document.createElement("p"); note.className = "fine-print"; note.textContent = "Create a regular account to save stories permanently or publish them to the Gallery."; card.appendChild(note);
       }
@@ -812,116 +912,187 @@
     }
   }
 
-  function askStoryTitle(defaultTitle) {
-    const title = window.prompt("Give your story a title (up to 100 characters):", defaultTitle || "My Ink Arena story");
-    if (title === null) return null;
-    const cleaned = title.trim().slice(0, 100);
-    if (!cleaned) { toast("Please enter a story title."); return null; }
-    return cleaned;
+  function askStoryTitle(defaultTitle, mode = "save") {
+    return new Promise(resolve => {
+      titleDialogResolve = resolve;
+      $("story-title-heading").textContent = mode === "publish" ? "Publish to the Gallery" : "Name your story";
+      $("story-title-help").textContent = mode === "publish"
+        ? "Choose the title readers will see in the public Gallery. You can keep the same title."
+        : "Choose a title you'll recognize in My Stories. You can rename it before publishing.";
+      safeText($("story-title-confirm"), mode === "publish" ? "Publish story" : "Save story");
+      $("story-title-input").value = defaultTitle || "Untitled story";
+      $("story-title-modal").classList.remove("hidden");
+      window.setTimeout(() => { $("story-title-input").focus(); $("story-title-input").select(); }, 0);
+    });
   }
 
   async function saveMyStory(matchId, promptTitle) {
-    if (!currentUser || currentProfile?.is_guest) return toast("A regular account is required to save stories to your profile.");
-    const title = askStoryTitle(`Story inspired by ${promptTitle}`);
+    if (!currentUser || currentProfile?.is_guest) return toast("A regular account is required to save stories.");
+    const title = await askStoryTitle(`Inspired by ${promptTitle}`);
     if (!title) return;
     try {
       const { error } = await client.rpc("save_story", { p_source_match_id: matchId, p_title: title });
       if (error) throw error;
-      toast("Saved to your profile.");
+      toast("Saved to My Stories.");
       await loadSavedStories();
+      navigateTo("profile");
+      $("saved-stories-list").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (e) { toast(e.message || "Could not save this story."); }
   }
 
-  async function publishMyStory(matchId, promptTitle) {
-    if (!currentUser || currentProfile?.is_guest) return toast("A regular account is required to publish stories.");
-    const title = askStoryTitle(`Story inspired by ${promptTitle}`);
-    if (!title) return;
-    if (!window.confirm("Publish this story to the public Gallery? Anyone who visits Ink Arena can read it. Do not include personal information.")) return;
-    try {
-      const { error } = await client.rpc("publish_story", { p_source_match_id: matchId, p_title: title });
-      if (error) throw error;
-      toast("Your story is now in the public Gallery.");
-      loadGallery();
-    } catch (e) { toast(e.message || "Could not publish this story."); }
-  }
 
-  async function loadSavedStories() {
+  async function loadSavedStories(reset = true) {
     const container = $("saved-stories-list");
+    const button = $("saved-stories-load-more");
     if (!container) return;
     if (!currentUser || currentProfile?.is_guest) {
       container.replaceChildren();
       const note = document.createElement("p"); note.className = "empty-history";
       note.textContent = currentProfile?.is_guest ? "Guest profiles are temporary. Create a regular account to keep a personal story library." : "Sign in with a regular account to save stories here.";
-      container.appendChild(note); return;
+      container.appendChild(note);
+      if (button) button.classList.add("hidden");
+      return;
     }
-    const { data, error } = await client.from("saved_stories")
-      .select("id,title,body,source_match_id,created_at")
-      .eq("user_id", currentUser.id).order("created_at", { ascending: false });
-    container.replaceChildren();
-    if (error) { const p = document.createElement("p"); p.className = "empty-history"; p.textContent = `Saved stories could not load: ${error.message}`; container.appendChild(p); return; }
-    if (!data?.length) { const p = document.createElement("p"); p.className = "empty-history"; p.textContent = "Nothing saved yet. Use “Save to my profile” under one of your judged stories."; container.appendChild(p); return; }
-    data.forEach(story => {
-      const item = document.createElement("article"); item.className = "saved-story-item";
-      const copy = document.createElement("div");
-      const title = document.createElement("h3"); title.textContent = story.title;
-      const body = document.createElement("p"); body.textContent = story.body;
-      copy.append(title, body);
-      const actions = document.createElement("div"); actions.className = "saved-story-actions";
-      const publish = document.createElement("button"); publish.className = "secondary-btn"; publish.textContent = "Publish";
-      publish.addEventListener("click", async () => {
-        if (!window.confirm("Publish this story to the public Gallery? Anyone can read it. Do not include personal information.")) return;
-        const { error: publishError } = await client.rpc("publish_saved_story", { p_saved_story_id: story.id });
-        if (publishError) toast(publishError.message); else { toast("Published to the Gallery."); loadGallery(); }
+    if (savedStoriesLoading) return;
+    savedStoriesLoading = true;
+    try {
+      if (reset) {
+        savedStoriesOffset = 0;
+        container.replaceChildren();
+        const loading = document.createElement("p"); loading.className = "empty-history"; loading.textContent = "Loading your stories…"; container.appendChild(loading);
+      }
+      if (button) button.disabled = true;
+      const from = savedStoriesOffset;
+      const to = from + SAVED_STORIES_PAGE_SIZE - 1;
+      const { data, error } = await client.from("saved_stories")
+        .select("id,title,body,source_match_id,created_at")
+        .eq("user_id", currentUser.id).order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, to);
+      if (reset) container.replaceChildren();
+      if (error) {
+        const p = document.createElement("p"); p.className = "empty-history"; p.textContent = `Saved stories could not load: ${error.message}`; container.appendChild(p);
+        if (button) button.classList.add("hidden");
+        return;
+      }
+      if (reset && !data?.length) {
+        const p = document.createElement("p"); p.className = "empty-history"; p.textContent = "Your saved stories will appear here. Save one from the results after a match."; container.appendChild(p);
+        if (button) button.classList.add("hidden");
+        return;
+      }
+      (data || []).forEach(story => {
+        const item = document.createElement("article"); item.className = "saved-story-item";
+        const copy = document.createElement("div");
+        const title = document.createElement("h3"); title.textContent = story.title;
+        const date = document.createElement("small"); date.className = "saved-story-date"; date.textContent = `Saved ${new Date(story.created_at).toLocaleDateString()}`;
+        const details = document.createElement("details"); details.className = "saved-story-details";
+        const summary = document.createElement("summary"); summary.textContent = "Read story";
+        const body = document.createElement("p"); body.textContent = story.body;
+        details.append(summary, body);
+        copy.append(title, date, details);
+        const actions = document.createElement("div"); actions.className = "saved-story-actions";
+        const rename = document.createElement("button"); rename.className = "secondary-btn"; rename.textContent = "Rename";
+        rename.addEventListener("click", async () => {
+          const nextTitle = await askStoryTitle(story.title);
+          if (!nextTitle || nextTitle === story.title) return;
+          const { error: renameError } = await client.rpc("rename_saved_story", { p_saved_story_id: story.id, p_title: nextTitle });
+          if (renameError) toast(renameError.message); else { toast("Story renamed."); loadSavedStories(true); }
+        });
+        const publish = document.createElement("button"); publish.className = "primary-btn"; publish.textContent = "Send to Gallery";
+        publish.addEventListener("click", async () => {
+          const publicTitle = await askStoryTitle(story.title, "publish");
+          if (!publicTitle) return;
+          if (!window.confirm("Publish this story for everyone to read? Your public username will be shown. Do not include personal information.")) return;
+          const { error: renameError } = await client.rpc("rename_saved_story", { p_saved_story_id: story.id, p_title: publicTitle });
+          if (renameError) { toast(renameError.message); return; }
+          const { error: publishError } = await client.rpc("publish_saved_story", { p_saved_story_id: story.id });
+          if (publishError) toast(publishError.message); else { toast("Your story is now in the Gallery."); await loadGallery(true); }
+        });
+        const remove = document.createElement("button"); remove.className = "secondary-btn danger-btn"; remove.textContent = "Delete";
+        remove.addEventListener("click", async () => {
+          if (!window.confirm("Delete this saved story from My Stories?")) return;
+          const { error: deleteError } = await client.from("saved_stories").delete().eq("id", story.id).eq("user_id", currentUser.id);
+          if (deleteError) toast(deleteError.message); else { toast("Saved story deleted."); loadSavedStories(true); }
+        });
+        actions.append(rename, publish, remove); item.append(copy, actions); container.appendChild(item);
       });
-      const remove = document.createElement("button"); remove.className = "secondary-btn danger-btn"; remove.textContent = "Delete";
-      remove.addEventListener("click", async () => {
-        if (!window.confirm("Delete this saved story from your profile?")) return;
-        const { error: deleteError } = await client.from("saved_stories").delete().eq("id", story.id).eq("user_id", currentUser.id);
-        if (deleteError) toast(deleteError.message); else { toast("Saved story deleted."); loadSavedStories(); }
-      });
-      actions.append(publish, remove); item.append(copy, actions); container.appendChild(item);
-    });
+      savedStoriesOffset += (data || []).length;
+      if (button) button.classList.toggle("hidden", (data || []).length < SAVED_STORIES_PAGE_SIZE);
+    } finally {
+      savedStoriesLoading = false;
+      if (button) button.disabled = false;
+    }
   }
 
-  async function loadGallery() {
+  async function loadGallery(reset = true) {
     const container = $("gallery-list");
-    if (!container || !client) return;
-    container.replaceChildren();
-    const loading = document.createElement("p"); loading.className = "empty-history"; loading.textContent = "Loading the Gallery…"; container.appendChild(loading);
-    const { data, error } = await client.rpc("get_public_gallery", { p_limit: 100 });
-    if (error) { container.replaceChildren(); const p = document.createElement("p"); p.className = "empty-history"; p.textContent = `Gallery could not load: ${error.message}. Run the v3.3 database update first.`; container.appendChild(p); return; }
-    let likedIds = new Set();
-    if (currentUser && !currentProfile?.is_guest) {
-      const { data: likes } = await client.from("gallery_likes").select("story_id").eq("user_id", currentUser.id);
-      likedIds = new Set((likes || []).map(row => row.story_id));
+    const button = $("gallery-load-more");
+    if (!container || !client || galleryLoading) return;
+    if (reset) { galleryOffset = 0; container.replaceChildren(); }
+    galleryLoading = true;
+    if (button) button.disabled = true;
+    if (reset) {
+      const loading = document.createElement("p"); loading.className = "empty-history"; loading.textContent = "Loading the Gallery…"; container.appendChild(loading);
     }
-    const stories = (data || []).map(story => ({ ...story, likeCount: Number(story.like_count || 0) }));
-    container.replaceChildren();
-    if (!stories.length) { const p = document.createElement("p"); p.className = "empty-history"; p.textContent = "The Gallery is empty so far. Be the first to publish a judged story."; container.appendChild(p); return; }
-    stories.forEach(story => {
-      const card = document.createElement("article"); card.className = "gallery-card";
-      const title = document.createElement("h3"); title.textContent = story.title;
-      const meta = document.createElement("div"); meta.className = "gallery-meta"; meta.textContent = `By ${story.author_name} · ${new Date(story.created_at).toLocaleDateString()}`;
-      const body = document.createElement("p"); body.className = "gallery-body"; body.textContent = story.body;
-      const actions = document.createElement("div"); actions.className = "gallery-actions";
-      const like = document.createElement("button"); like.className = `secondary-btn like-btn${likedIds.has(story.id) ? " liked" : ""}`;
-      const isOwner = currentUser && currentUser.id === story.author_id;
-      const canLike = Boolean(currentUser && currentProfile && !currentProfile.is_guest && !isOwner);
-      like.textContent = currentUser?.is_anonymous || currentProfile?.is_guest ? `👍 ${story.likeCount} · Account needed` : !currentUser ? `👍 ${story.likeCount} · Sign in to like` : isOwner ? `👍 ${story.likeCount} · Your story` : `${likedIds.has(story.id) ? "♥ Liked" : "👍 Like"} · ${story.likeCount}`;
-      like.disabled = !canLike;
-      if (canLike) like.addEventListener("click", () => toggleGalleryLike(story.id, likedIds.has(story.id)));
-      actions.appendChild(like);
-      if (isOwner) {
-        const remove = document.createElement("button"); remove.className = "secondary-btn danger-btn"; remove.textContent = "Remove post";
-        remove.addEventListener("click", async () => {
-          if (!window.confirm("Remove this story from the public Gallery?")) return;
-          const { error: deleteError } = await client.from("gallery_stories").delete().eq("id", story.id).eq("author_id", currentUser.id);
-          if (deleteError) toast(deleteError.message); else { toast("Gallery post removed."); loadGallery(); }
-        });
-        actions.appendChild(remove);
+    try {
+      const { data, error } = await client.rpc("get_public_gallery_page", { p_limit: GALLERY_PAGE_SIZE, p_offset: galleryOffset });
+      if (error) {
+        if (reset) {
+          container.replaceChildren();
+          const p = document.createElement("p"); p.className = "empty-history"; p.textContent = `Gallery could not load: ${error.message}. Run the v3.4 update first.`; container.appendChild(p);
+        }
+        if (button) button.classList.add("hidden");
+        return;
       }
-      card.append(title, meta, body, actions); container.appendChild(card);
-    });
+      let likedIds = new Set();
+      if (currentUser && !currentProfile?.is_guest && data?.length) {
+        const ids = data.map(row => row.id);
+        const { data: likes } = await client.from("gallery_likes").select("story_id").eq("user_id", currentUser.id).in("story_id", ids);
+        likedIds = new Set((likes || []).map(row => row.story_id));
+      }
+      if (reset) container.replaceChildren();
+      const stories = data || [];
+      stories.forEach(story => {
+        const card = document.createElement("article"); card.className = "gallery-card";
+        const title = document.createElement("h3"); title.textContent = story.title;
+        const meta = document.createElement("div"); meta.className = "gallery-meta"; meta.textContent = `By ${story.author_name} · ${new Date(story.created_at).toLocaleDateString()}`;
+        const details = document.createElement("details"); details.className = "gallery-story-details";
+        const read = document.createElement("summary"); read.textContent = "Read story";
+        const body = document.createElement("p"); body.className = "gallery-body"; body.textContent = story.body;
+        details.append(read, body);
+        const actions = document.createElement("div"); actions.className = "gallery-actions";
+        const like = document.createElement("button"); like.className = `secondary-btn like-btn${likedIds.has(story.id) ? " liked" : ""}`;
+        const isOwner = currentUser && currentUser.id === story.author_id;
+        const canLike = Boolean(currentUser && currentProfile && !currentProfile.is_guest && !isOwner);
+        like.textContent = currentUser?.is_anonymous || currentProfile?.is_guest ? `👍 ${story.like_count} · Account needed` : !currentUser ? `👍 ${story.like_count} · Sign in to like` : isOwner ? `👍 ${story.like_count} · Your story` : `${likedIds.has(story.id) ? "♥ Liked" : "👍 Like"} · ${story.like_count}`;
+        like.disabled = !canLike;
+        if (canLike) like.addEventListener("click", () => toggleGalleryLike(story.id, likedIds.has(story.id)));
+        actions.appendChild(like);
+        if (isOwner) {
+          const remove = document.createElement("button"); remove.className = "secondary-btn danger-btn"; remove.textContent = "Remove post";
+          remove.addEventListener("click", async () => {
+            if (!window.confirm("Remove this story from the public Gallery?")) return;
+            const { error: deleteError } = await client.from("gallery_stories").delete().eq("id", story.id).eq("author_id", currentUser.id);
+            if (deleteError) toast(deleteError.message); else { toast("Gallery post removed."); loadGallery(true); }
+          });
+          actions.appendChild(remove);
+        }
+        card.append(title, meta, details, actions); container.appendChild(card);
+      });
+      galleryOffset += stories.length;
+      galleryHasMore = stories.length === GALLERY_PAGE_SIZE;
+      if (button) button.classList.toggle("hidden", !galleryHasMore);
+      if (reset && !stories.length) {
+        const p = document.createElement("p"); p.className = "empty-history"; p.textContent = "The Gallery is empty so far. Save a story after a match, then send it here from My Stories."; container.appendChild(p);
+      }
+    } catch (error) {
+      if (reset) {
+        container.replaceChildren();
+        const p = document.createElement("p"); p.className = "empty-history"; p.textContent = `Gallery could not load: ${error?.message || "Unexpected error."}`; container.appendChild(p);
+      }
+      if (button) button.classList.add("hidden");
+    } finally {
+      galleryLoading = false;
+      if (button) button.disabled = false;
+    }
   }
 
   async function toggleGalleryLike(storyId, isLiked) {
@@ -930,7 +1101,7 @@
       ? await client.from("gallery_likes").delete().eq("story_id", storyId).eq("user_id", currentUser.id)
       : await client.from("gallery_likes").insert({ story_id: storyId, user_id: currentUser.id });
     if (result.error) { toast(result.error.message); return; }
-    await loadGallery();
+    await loadGallery(true);
   }
 
   async function runJudge(userRequested) {
