@@ -131,25 +131,29 @@
 
           <section class="private-room-card" id="private-room-card" aria-labelledby="private-room-title">
             <div class="private-room-heading">
-              <div><div class="eyebrow">PLAY WITH YOUR OWN GROUP</div><h2 id="private-room-title">Private rooms</h2><p>Host a room and share its code, or enter a code someone gave you. Guests can join.</p></div>
-              <span class="private-room-icon" aria-hidden="true">⌑</span>
+              <div>
+                <div class="eyebrow">PLAY WITH YOUR OWN GROUP</div>
+                <h2 id="private-room-title">Private rooms</h2>
+                <p>Invite your own group to a writing match. Host a room and share its code, or join with a code from a friend.</p>
+              </div>
+              <span class="private-room-icon">INVITE ONLY</span>
             </div>
             <div class="private-room-grid">
               <div class="private-room-action host-room-action">
-                <div class="private-room-action-title"><span class="private-room-step">01</span><div><h3>Host a room</h3><p>Choose how many people can join. The time comes from the selected game mode above.</p></div></div>
-                <label for="private-room-players">Room size</label>
+                <div class="private-room-action-title"><span class="private-room-step">01 / HOST</span><div><h3>Create a room</h3><p>Set the room size, then share the code with your group. The match time follows the mode selected above.</p></div></div>
+                <label for="private-room-players">Players in your room</label>
                 <select id="private-room-players">
                   <option value="2">2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="8">8 players</option><option value="10">10 players</option><option value="12">12 players</option><option value="16">16 players</option><option value="20">20 players</option><option value="25">25 players</option><option value="30">30 players</option>
                 </select>
                 <button class="primary-btn full-btn" id="host-room-btn" type="button">Create private room <span>→</span></button>
-                <p class="private-room-hint" id="host-room-hint">Hosting requires a regular Ink Arena account. Guests can join with a code.</p>
+                <p class="private-room-hint" id="host-room-hint">Hosting is available to registered accounts. Guests can join with an invite code.</p>
               </div>
               <div class="private-room-action join-room-action">
-                <div class="private-room-action-title"><span class="private-room-step">02</span><div><h3>Join with a code</h3><p>Enter the 8-character code shared by the host.</p></div></div>
+                <div class="private-room-action-title"><span class="private-room-step">02 / JOIN</span><div><h3>Join a room</h3><p>Already have an invite? Enter the 8-character room code shared by the host.</p></div></div>
                 <label for="join-room-code">Room code</label>
-                <input id="join-room-code" type="text" maxlength="8" minlength="8" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="e.g. 4F8A2C1D" aria-describedby="join-room-help">
+                <input id="join-room-code" type="text" maxlength="8" minlength="8" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="ENTER CODE" aria-describedby="join-room-help">
                 <button class="secondary-btn full-btn" id="join-room-btn" type="button">Join private room <span>→</span></button>
-                <p class="private-room-hint" id="join-room-help">You can join as a registered player or temporary guest.</p>
+                <p class="private-room-hint" id="join-room-help">Registered players and temporary guests can join.</p>
               </div>
             </div>
             <p class="private-room-feedback" id="private-room-feedback" role="status" aria-live="polite"></p>

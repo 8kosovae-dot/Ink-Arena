@@ -302,3 +302,168 @@ button{font-size:14px}
 .room-code-panel strong{font:800 30px var(--mono);letter-spacing:5px;color:var(--gold);user-select:all}
 .room-code-panel button{min-width:140px}
 @media(max-width:720px){.private-room-grid{grid-template-columns:1fr}.private-room-action-title{min-height:0}.private-room-icon{width:44px;height:44px;font-size:27px}}
+
+/* Refined private-room panel: match the Arena's charcoal, slate and gold system. */
+.private-room-card {
+  margin: 18px 0 24px;
+  padding: clamp(22px, 3vw, 34px);
+  background: linear-gradient(145deg, var(--panel), color-mix(in srgb, var(--panel2) 48%, var(--panel)));
+  border: 1px solid color-mix(in srgb, var(--gold) 25%, var(--line));
+  border-radius: 17px;
+  box-shadow: none;
+}
+.private-room-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 23px;
+  padding-bottom: 21px;
+  border-bottom: 1px solid var(--line);
+}
+.private-room-heading h2 {
+  margin: 6px 0 7px;
+  color: var(--text);
+  font: 700 clamp(27px, 3vw, 34px) var(--serif);
+  letter-spacing: -.6px;
+}
+.private-room-heading p {
+  max-width: 700px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.private-room-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--gold) 32%, var(--line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--gold) 8%, var(--panel));
+  color: var(--gold);
+  font: 10px var(--mono);
+  letter-spacing: 1.1px;
+  white-space: nowrap;
+}
+.private-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.private-room-action {
+  display: grid;
+  align-content: start;
+  gap: 13px;
+  min-width: 0;
+  padding: 21px;
+  border: 1px solid var(--line);
+  border-top: 2px solid color-mix(in srgb, var(--gold) 42%, var(--line));
+  border-radius: 11px;
+  background: var(--panel2);
+  transition: border-color .18s ease, transform .18s ease;
+}
+.private-room-action:hover {
+  border-color: color-mix(in srgb, var(--gold) 48%, var(--line));
+  transform: translateY(-1px);
+}
+.private-room-action-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 104px;
+}
+.private-room-step {
+  flex: none;
+  width: auto;
+  height: auto;
+  padding-top: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--gold);
+  font: 10px var(--mono);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.private-room-action-title h3 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font: 700 21px var(--serif);
+}
+.private-room-action-title p {
+  margin: 0;
+  max-width: 420px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.private-room-action label {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.private-room-action select,
+.private-room-action input {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  outline: none;
+  background: var(--panel3);
+  color: var(--text);
+  font: 600 16px var(--sans);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.private-room-action select:focus,
+.private-room-action input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 13%, transparent);
+}
+.private-room-action input {
+  font: 700 17px var(--mono);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.private-room-action input::placeholder {
+  color: var(--muted);
+  font: 500 12px var(--mono);
+  letter-spacing: 1.4px;
+  opacity: .8;
+}
+.private-room-action .full-btn {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 7px;
+  font-size: 14px;
+}
+.private-room-hint {
+  min-height: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.private-room-feedback {
+  min-height: 1px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 720px) {
+  .private-room-heading { gap: 12px; }
+  .private-room-grid { grid-template-columns: 1fr; }
+  .private-room-action-title { min-height: 0; }
+}
+@media (max-width: 520px) {
+  .private-room-card { padding: 19px; }
+  .private-room-heading { flex-direction: column; align-items: flex-start; }
+  .private-room-heading h2 { font-size: 28px; }
+  .private-room-action { padding: 17px; }
+}
