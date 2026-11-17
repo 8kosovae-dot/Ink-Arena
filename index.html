@@ -19,6 +19,8 @@
         <button class="nav-link active" data-page="home">Home</button>
         <button class="nav-link" data-page="arena">Arena</button>
         <button class="nav-link" data-page="rankings">Rankings</button>
+        <button class="nav-link" data-page="gallery">Gallery</button>
+        <button class="nav-link" data-page="about">About</button>
         <button class="nav-link" data-page="profile">Profile</button>
       </nav>
       <div class="header-actions">
@@ -71,40 +73,36 @@
             <div class="home-feature-mark">✒</div>
           </div>
           <div class="home-info-grid">
-            <article class="home-info-card"><span class="info-label">01 / COMPETE</span><h3>Live writing rooms</h3><p>Match with two to eight writers and create under the same deadline.</p><button class="text-btn" data-page="arena">Open Arena →</button></article>
-            <article class="home-info-card"><span class="info-label">02 / IMPROVE</span><h3>Structured AI feedback</h3><p>See how your craft, story, prompt fit, emotion, and originality scored.</p><button class="text-btn" data-page="profile">View your progress →</button></article>
+            <article class="home-info-card"><span class="info-label">01 / COMPETE</span><h3>Live writing rooms</h3><p>Match with 2–8 writers using the same player count and time limit.</p><button class="text-btn" data-page="arena">Open Arena →</button></article>
+            <article class="home-info-card"><span class="info-label">02 / IMPROVE</span><h3>Structured AI feedback</h3><p>See how your craft, story, prompt fit, emotion, and spelling & grammar scored.</p><button class="text-btn" data-page="profile">View your progress →</button></article>
             <article class="home-info-card"><span class="info-label">03 / CLIMB</span><h3>Competitive rankings</h3><p>Track ratings and see how you compare with other writers.</p><button class="text-btn" data-page="rankings">See rankings →</button></article>
           </div>
         </section>
         <section class="public-note"><b>Community guidelines</b><span>Keep stories age-appropriate and respectful. Do not submit personal information, private messages, or content that targets another player. Stories are shared with match participants and processed by automated screening and AI judging.</span></section>
       </section>
 
-      <!-- APP PAGES: shown after sign-in -->
+      <!-- Arena, player, Gallery, and About pages -->
       <div class="app-pages hidden" id="app-content">
         <section class="page-view" id="page-arena" aria-labelledby="arena-title">
           <div class="page-heading"><div><div class="eyebrow">01 / COMPETE</div><h1 id="arena-title">The Arena</h1><p>Choose your match format, find a room, and write against the clock.</p></div><button class="secondary-btn" id="prompts-open">Browse prompt library</button></div>
 
           <div class="mode-card" id="mode-card">
             <div class="mode-card-heading"><div><div class="eyebrow">CHOOSE YOUR GAME MODE</div><h2>Set up your match</h2><p>Players are grouped with others who choose the same settings.</p></div><span class="mode-icon">⚔</span></div>
-            <div class="mode-controls">
-              <div class="mode-field"><label for="arena-players">Players per room</label><select id="arena-players"><option value="2">Duel · 2 writers</option><option value="3">Trio · 3 writers</option><option value="4" selected>Squad · 4 writers</option><option value="5">Crew · 5 writers</option><option value="6">Party · 6 writers</option><option value="8">Grand room · 8 writers</option></select></div>
-              <div class="mode-field"><label for="arena-minutes">Time limit</label><select id="arena-minutes"><option value="5">Blitz · 5 minutes</option><option value="10" selected>Quick · 10 minutes</option><option value="15">Standard · 15 minutes</option><option value="20">Extended · 20 minutes</option><option value="30">Marathon · 30 minutes</option></select></div>
-              <div class="mode-field"><label for="arena-characters">Character limit</label><select id="arena-characters"><option value="2500">2,500 characters</option><option value="5000">5,000 characters</option><option value="7500">7,500 characters</option><option value="10000" selected>10,000 characters</option></select></div>
+            <div class="mode-controls mode-controls-simple">
+              <div class="mode-field"><label for="arena-players">Players</label><select id="arena-players"><option value="2" selected>2 players</option><option value="3">3 players</option><option value="4">4 players</option><option value="5">5 players</option><option value="6">6 players</option><option value="8">8 players</option></select></div>
+              <div class="mode-field"><label for="arena-minutes">Time limit</label><select id="arena-minutes"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option></select></div>
             </div>
-            <div class="mode-summary"><span id="queue-summary">4 writers · 10 minutes · 10,000-character limit</span><span class="mode-note">You can change these before joining a queue.</span></div>
+            <div class="mode-summary mode-summary-simple"><div><b id="queue-summary">2 players · 10 minutes</b><span id="queue-character-hint">Up to 5,000 characters</span></div><span class="mode-note">Character limit adjusts automatically with time.</span></div>
+            <button class="primary-btn full-btn mode-start-btn" id="start-btn">Find a match <span>→</span></button>
           </div>
 
           <div class="battle-card" id="battle-card">
-            <div class="battle-topline"><span class="mode-label">⚔ RANKED WRITING MATCH</span><span class="match-id" id="match-id">READY TO QUEUE</span></div>
-            <div class="matchup"><div class="player-block"><div class="player-avatar you-avatar" id="you-avatar">Y</div><b id="you-name">You</b><small id="you-rating">1200 ELO</small></div><div class="versus"><span>VS</span><i></i></div><div class="player-block"><div class="player-avatar opponent-avatar">✒</div><b>Other writers</b><small>GROUP MATCH</small></div></div>
-            <div class="battle-info"><div><span class="info-label">PLAYERS</span><b id="queue-players">4 writers</b></div><div><span class="info-label">TIME LIMIT</span><b id="queue-time">10 minutes</b></div><div><span class="info-label">CHARACTER LIMIT</span><b id="queue-characters">10,000 characters</b></div></div>
-            <button class="primary-btn full-btn" id="start-btn">Find a writing battle <span>→</span></button>
-            <p class="fine-print">Matchmaking begins when enough writers choose the same game mode.</p>
+            <p class="fine-print">You will be matched with writers who choose the same player count and time limit.</p>
           </div>
           <div class="waiting-card hidden" id="waiting-card"><div class="waiting-spinner"></div><div class="eyebrow">MATCHMAKING</div><h3 id="waiting-title">Finding your writing room...</h3><p id="waiting-copy">Waiting for more writers to join your room.</p><div class="room-progress"><div class="room-progress-bar" id="room-progress-bar"></div></div><div class="room-count" id="room-count">1 / 4 writers</div><button class="secondary-btn danger-btn" id="cancel-queue-btn">Leave queue</button></div>
           <div class="editor-card hidden" id="editor-card">
             <div class="editor-header"><div><div class="eyebrow">YOUR CHALLENGE</div><h3 id="prompt-title">The last message</h3><span class="prompt-meta" id="prompt-meta">Fantasy · Intermediate</span></div><div class="timer" id="timer" aria-live="polite">10:00</div></div>
-            <div class="prompt-box"><span class="prompt-label">SHARED WRITING PROMPT</span><p id="prompt-text"></p></div>
+            <div class="prompt-box"><span class="prompt-label">SHARED WRITING PROMPT</span><p id="prompt-text"></p><div class="prompt-skip-row"><button class="secondary-btn" id="skip-prompt-btn">Vote to skip prompt</button><span id="skip-prompt-status" role="status">Everyone must agree. The timer restarts with a new prompt.</span></div></div>
             <div class="room-strip"><span id="live-room-count">4 writers in this match</span><span id="submission-progress">0 / 4 submitted</span></div>
             <label class="sr-only" for="story-input">Your story</label><textarea id="story-input" maxlength="10000" placeholder="Every great story starts with a sentence..."></textarea>
             <div class="editor-footer"><span><b id="character-count">0</b> / <span id="character-limit-label">10,000</span> characters</span><span id="editor-status">Draft autosaves in this browser.</span></div>
@@ -125,18 +123,44 @@
           <div class="profile-card"><div class="profile-avatar" id="profile-avatar">W</div><div class="profile-main"><h2 id="profile-username">Writer</h2><span id="profile-league" class="profile-league">Apprentice</span><p id="profile-description">Your profile is public to other signed-in Ink Arena players.</p></div><div class="profile-rating-block" id="profile-rating-block"><span class="info-label">CURRENT RATING</span><strong id="profile-rating">1200</strong><small>ELO</small></div></div>
           <div class="profile-stats-grid" id="profile-stats-grid"><article class="stat-card"><span class="stat-label">MATCHES</span><strong id="profile-matches">0</strong></article><article class="stat-card"><span class="stat-label">WINS</span><strong id="profile-wins">0</strong></article><article class="stat-card"><span class="stat-label">LOSSES</span><strong id="profile-losses">0</strong></article><article class="stat-card"><span class="stat-label">DRAWS</span><strong id="profile-draws">0</strong></article></div>
           <div class="history-card-full"><div class="side-heading"><div><div class="eyebrow">MATCH ARCHIVE</div><h2>Recent battles</h2></div><button class="secondary-btn" id="history-refresh">Refresh</button></div><div id="history-list" class="history-list"><p class="empty-history">Your match history will appear here.</p></div></div>
+          <div class="history-card-full saved-stories-card"><div class="side-heading"><div><div class="eyebrow">YOUR LIBRARY</div><h2>Saved stories</h2><p>Keep your favourite judged stories here for later.</p></div><button class="secondary-btn" id="saved-stories-refresh">Refresh</button></div><div id="saved-stories-list" class="saved-stories-list"><p class="empty-history">Stories you save after a match will appear here.</p></div></div>
+        </section>
+
+        <section class="page-view" id="page-gallery" aria-labelledby="gallery-title">
+          <div class="page-heading"><div><div class="eyebrow">COMMUNITY STORIES</div><h1 id="gallery-title">The Gallery</h1><p>Read stories that writers chose to share with everyone. Popular stories rise to the top.</p></div><button class="secondary-btn" id="gallery-refresh">Refresh gallery</button></div>
+          <div class="gallery-notice">Only stories from completed, successfully judged matches can be published. Public stories show the author's username. Please never include personal details.</div>
+          <div id="gallery-list" class="gallery-grid"><p class="empty-history">Loading community stories…</p></div>
+        </section>
+
+        <section class="page-view" id="page-about" aria-labelledby="about-title">
+          <div class="page-heading"><div><div class="eyebrow">HOW IT WORKS</div><h1 id="about-title">About Ink Arena</h1><p>A straightforward guide to matches, scoring, rankings, and the community.</p></div></div>
+          <div class="about-layout">
+            <article class="about-card"><div class="eyebrow">01 / PLAYING A MATCH</div><h2>Choose two things</h2><p>In the Arena, choose how many writers should be in the room and how long you want to write. Ink Arena matches you with people who chose the same settings.</p><ul><li><b>5 minutes:</b> up to 2,500 characters</li><li><b>10 minutes:</b> up to 5,000 characters</li><li><b>15 minutes:</b> up to 7,500 characters</li><li><b>20 minutes:</b> up to 10,000 characters</li></ul><p>Everyone in the room receives the same prompt and the timer begins when the room is full.</p></article>
+            <article class="about-card"><div class="eyebrow">02 / PROMPT SKIP</div><h2>Change a prompt together</h2><p>Every active player can vote to skip the current prompt. The prompt changes only when every player has voted. The timer then restarts at the full time limit. The skip option closes once anyone submits a story.</p></article>
+            <article class="about-card about-rubric"><div class="eyebrow">03 / AI GRADING · 100 POINTS</div><h2>Five criteria, 20 points each</h2>
+              <div class="rubric-row"><b>Craft & clarity <span>20 pts</span></b><p>Clear writing, effective sentences, vivid details, and a consistent voice.</p></div>
+              <div class="rubric-row"><b>Story & structure <span>20 pts</span></b><p>Interesting development, coherent events, characters or ideas, and a satisfying shape.</p></div>
+              <div class="rubric-row"><b>Prompt fit <span>20 pts</span></b><p>How well the story responds to the shared prompt and uses its central idea.</p></div>
+              <div class="rubric-row"><b>Emotion & impact <span>20 pts</span></b><p>How effectively the story creates a mood, feeling, tension, humour, or a memorable effect.</p></div>
+              <div class="rubric-row"><b>Spelling & grammar <span>20 pts</span></b><p>Spelling, punctuation, grammar, and sentence correctness. Intentional voice and dialect are not automatically mistakes.</p></div>
+              <p>The scores are added for a total out of 100. The highest total wins; matching top scores mean a tie. AI feedback is an estimate, not an unquestionable verdict.</p>
+            </article>
+            <article class="about-card"><div class="eyebrow">04 / ELO & GUESTS</div><h2>Ranked or unranked</h2><p>Regular accounts start with an ELO rating. In ranked matches, ratings and win/loss/draw records update after judging. Guest matches are always unranked. If even one guest joins a match, nobody in that match gains or loses ELO or record points.</p></article>
+            <article class="about-card"><div class="eyebrow">05 / SAVING & SHARING</div><h2>Your stories, your choice</h2><p>After a match has been judged, a registered account can save its own story privately to the Profile page or publish it to the public Gallery. Publishing is optional. Signed-in, non-guest accounts can give other writers a thumbs-up. Stories with the most thumbs-up appear first.</p></article>
+            <article class="about-card"><div class="eyebrow">06 / COMMUNITY & PRIVACY</div><h2>Keep it respectful</h2><p>Use fictional ideas and keep stories appropriate for a teen-accessible community. Do not include real names, addresses, schools, phone numbers, private messages, or other personal information. Public gallery posts can be read by anyone.</p></article>
+          </div>
         </section>
       </div>
     </main>
 
-    <footer><button class="brand footer-brand" data-page="home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></button><span>WRITE. COMPETE. IMPROVE.</span><span>Beta v3.2</span></footer>
+    <footer><button class="brand footer-brand" data-page="home"><span class="brand-mark">IA</span><span>INK<span class="brand-light">ARENA</span></span></button><span>WRITE. COMPETE. IMPROVE.</span><span>Beta v3.3</span></footer>
   </div>
 
   <div class="modal-backdrop hidden" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
     <div class="modal-card"><div class="modal-header"><div><div class="eyebrow">PERSONALIZE YOUR ARENA</div><h2 id="settings-title">Settings</h2></div><button class="icon-btn" data-close="settings-modal" aria-label="Close settings">×</button></div>
       <div class="settings-grid">
         <section class="settings-section"><h3>Account</h3><label for="settings-username">Public username</label><input id="settings-username" maxlength="20" autocomplete="off"><button class="secondary-btn" id="save-username-btn">Save username</button><p class="muted-note">3–20 letters, numbers, or underscores.</p></section>
-        <section class="settings-section"><h3>Appearance</h3><label for="pref-theme">Theme</label><select id="pref-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Use device setting</option></select><label for="pref-font">Writing editor text</label><select id="pref-font"><option value="16">Comfortable</option><option value="18">Large</option><option value="20">Extra large</option></select><button class="secondary-btn" id="save-look-btn">Save appearance</button></section>
+        <section class="settings-section"><h3>Appearance</h3><label for="pref-theme">Theme</label><select id="pref-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">Use device setting</option></select><label for="pref-font">Writing editor text</label><select id="pref-font"><option value="18">Comfortable</option><option value="20">Large</option><option value="22">Extra large</option></select><button class="secondary-btn" id="save-look-btn">Save appearance</button></section>
         <section class="settings-section" id="account-security-section"><h3>Account security</h3><p class="muted-note">Send yourself a secure reset email, then choose a new password here. Ink Arena never stores your password in its own settings.</p><button class="secondary-btn" id="settings-reset-password">Email me a password reset</button><label for="settings-new-password">New password (8+ characters)</label><input id="settings-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="New password"><label for="settings-confirm-new-password">Confirm new password</label><input id="settings-confirm-new-password" type="password" minlength="8" autocomplete="new-password" placeholder="Type it again"><button class="secondary-btn" id="change-password-btn">Update password</button></section>
       </div>
       <p class="modal-feedback" id="settings-feedback" role="status"></p>

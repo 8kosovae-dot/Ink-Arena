@@ -5,7 +5,7 @@
   const CONFIG = window.INK_ARENA_CONFIG || {};
   const configured = CONFIG.supabaseUrl && CONFIG.supabasePublishableKey &&
     !String(CONFIG.supabaseUrl).includes("PASTE_") && !String(CONFIG.supabasePublishableKey).includes("PASTE_");
-  const PREF_DEFAULTS = { players: 4, minutes: 10, characters: 10000, theme: "dark", font: 16 };
+  const PREF_DEFAULTS = { players: 2, minutes: 10, theme: "dark", font: 18 };
   const PROMPT_CATEGORIES = ["Fantasy", "Mystery", "Science Fiction", "Realistic Fiction", "Horror", "Adventure", "Comedy", "Drama", "Historical", "Surreal"];
 
   let client = null;
@@ -48,8 +48,10 @@
   }
   function showScreen(id) {
     ["battle-card", "waiting-card", "editor-card", "opponent-wait-card", "results-card"].forEach(screen => {
-      $(screen).classList.toggle("hidden", screen !== id);
+      const node = $(screen);
+      if (node) node.classList.toggle("hidden", screen !== id);
     });
+    $("mode-card").classList.toggle("hidden", id !== "battle-card");
   }
   function getEmailRedirectUrl() { return new URL("./", window.location.href).href; }
   function prefKey() { return `inkArenaPrefs_${currentUser?.id || "guest"}`; }
@@ -57,6 +59,10 @@
   function readPrefs() {
     try { currentPrefs = { ...PREF_DEFAULTS, ...JSON.parse(localStorage.getItem(prefKey()) || "{}") }; }
     catch { currentPrefs = { ...PREF_DEFAULTS }; }
+    if (![2, 3, 4, 5, 6, 8].includes(Number(currentPrefs.players))) currentPrefs.players = PREF_DEFAULTS.players;
+    if (![5, 10, 15, 20].includes(Number(currentPrefs.minutes))) currentPrefs.minutes = PREF_DEFAULTS.minutes;
+    if (![18, 20, 22].includes(Number(currentPrefs.font))) currentPrefs.font = PREF_DEFAULTS.font;
+    currentPrefs.characters = characterLimitForMinutes(currentPrefs.minutes);
     applyAppearance();
     syncSettingsControls();
     syncArenaModeControls();
@@ -77,33 +83,36 @@
   function syncArenaModeControls() {
     $("arena-players").value = String(currentPrefs.players);
     $("arena-minutes").value = String(currentPrefs.minutes);
-    $("arena-characters").value = String(currentPrefs.characters);
     updateQueueSummary();
   }
+  function characterLimitForMinutes(minutes) { return Math.min(10000, Number(minutes) * 500); }
   function updateQueueSummary() {
     const p = currentPrefs;
-    safeText($("queue-summary"), `${p.players} writers · ${p.minutes} minutes · ${Number(p.characters).toLocaleString()}-character limit`);
-    safeText($("queue-players"), `${p.players} writers`);
-    safeText($("queue-time"), `${p.minutes} minutes`);
-    safeText($("queue-characters"), `${Number(p.characters).toLocaleString()} characters`);
+    const cap = characterLimitForMinutes(p.minutes);
+    safeText($("queue-summary"), `${p.players} ${p.players === 1 ? "player" : "players"} · ${p.minutes} minutes`);
+    safeText($("queue-character-hint"), `Up to ${cap.toLocaleString()} characters`);
   }
   function updateArenaMode() {
     currentPrefs.players = Number($("arena-players").value);
     currentPrefs.minutes = Number($("arena-minutes").value);
-    currentPrefs.characters = Number($("arena-characters").value);
+    currentPrefs.characters = characterLimitForMinutes(currentPrefs.minutes);
     savePrefs();
   }
   function navigateTo(page, updateHistory = true) {
-    const validPages = ["home", "arena", "rankings", "profile"];
+    const validPages = ["home", "arena", "rankings", "profile", "gallery", "about"];
+    const publicPages = ["home", "gallery", "about"];
     if (!validPages.includes(page)) page = "home";
-    if (page !== "home" && !currentUser) {
+    if (!currentUser && !publicPages.includes(page)) {
       page = "home";
-      toast("Please sign in to access that page.");
+      toast("Sign in or continue as a guest to use the Arena and player pages.");
     }
     currentPage = page;
+    $("app-content").classList.toggle("hidden", !currentUser && !["gallery", "about"].includes(page));
     document.querySelectorAll(".page-view").forEach(view => view.classList.toggle("active", view.id === `page-${page}`));
     document.querySelectorAll("[data-page]").forEach(button => button.classList.toggle("active", button.dataset.page === page));
     if (updateHistory && window.location.hash !== `#${page}`) window.history.pushState({ page }, "", `#${page}`);
+    if (page === "gallery" && client) loadGallery();
+    if (page === "profile" && currentUser && currentProfile && !currentProfile.is_guest) loadSavedStories();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function leagueFor(rating) {
@@ -166,7 +175,6 @@
     $("settings-open").addEventListener("click", openSettings);
     $("arena-players").addEventListener("change", updateArenaMode);
     $("arena-minutes").addEventListener("change", updateArenaMode);
-    $("arena-characters").addEventListener("change", updateArenaMode);
     $("save-look-btn").addEventListener("click", saveAppearancePreferences);
     $("save-username-btn").addEventListener("click", saveUsername);
     $("settings-reset-password").addEventListener("click", resetPassword);
@@ -174,6 +182,9 @@
     $("prompts-open").addEventListener("click", openPrompts);
     $("history-refresh").addEventListener("click", loadHistory);
     $("rankings-refresh").addEventListener("click", loadLeaderboard);
+    $("gallery-refresh").addEventListener("click", loadGallery);
+    $("saved-stories-refresh").addEventListener("click", loadSavedStories);
+    $("skip-prompt-btn").addEventListener("click", voteSkipPrompt);
     document.querySelectorAll("[data-page]").forEach(button => button.addEventListener("click", event => {
       event.preventDefault(); navigateTo(button.dataset.page);
     }));
@@ -307,14 +318,15 @@
     stopPolling(); stopClock(); activeMatch = null; submissionSent = false;
     if (!currentUser) {
       currentProfile = null; matchMembers = [];
-      $("auth-card").classList.remove("hidden");
+      $("auth-card").classList.toggle("hidden", currentPage !== "home");
       $("signed-in-strip").classList.add("hidden");
       $("stats-grid").classList.add("hidden");
-      $("app-content").classList.add("hidden");
       $("home-dashboard").classList.add("hidden");
       $("settings-open").classList.add("hidden");
-      navigateTo("home", false);
-      safeText($("header-username"), "GUEST"); safeText($("header-rating"), "SIGN IN TO PLAY"); safeText($("header-avatar"), "?");
+      if (!["gallery", "about"].includes(currentPage)) currentPage = "home";
+      navigateTo(currentPage, false);
+      safeText($("header-username"), "VISITOR"); safeText($("header-rating"), "PUBLIC GALLERY"); safeText($("header-avatar"), "?");
+      if (currentPage === "gallery") loadGallery();
       return;
     }
     $("auth-card").classList.add("hidden");
@@ -328,6 +340,7 @@
     navigateTo(currentPage, false);
     await loadProfile();
     await Promise.all([loadLeaderboard(), loadPromptLibrary(), loadHistory()]);
+    if (currentPage === "gallery") await loadGallery();
     await resumeMatch();
   }
 
@@ -370,6 +383,7 @@
       ? "Temporary guest profile. This identity is stored only in this browser session and has no ELO rating."
       : "Your profile is public to other signed-in Ink Arena players.");
     $("settings-username").value = username;
+    await loadSavedStories();
   }
 
   async function loadLeaderboard() {
@@ -486,7 +500,7 @@
       const { data, error } = await client.rpc("find_match", {
         p_target_players: currentPrefs.players,
         p_duration_seconds: currentPrefs.minutes * 60,
-        p_character_limit: currentPrefs.characters
+        p_character_limit: characterLimitForMinutes(currentPrefs.minutes)
       });
       if (error) throw error;
       const room = Array.isArray(data) ? data[0] : data;
@@ -497,7 +511,7 @@
       if (match.status === "waiting") { await updateWaitingRoom(match); beginPolling(); }
       else if (match.status === "active") { await handleActiveMatch(match); beginPolling(); }
     } catch (e) { toast(e.message || "Could not find a match."); }
-    finally { setBusy(false); safeText($("start-btn"), "Find a writing battle →"); }
+    finally { setBusy(false); safeText($("start-btn"), "Find a match →"); }
   }
 
   function beginPolling() { stopPolling(); pollHandle = window.setInterval(pollMatch, 2200); pollMatch(); }
@@ -505,16 +519,18 @@
   function stopClock() { if (clockHandle) window.clearInterval(clockHandle); clockHandle = null; }
 
   async function fetchRoomData(match) {
-    const [{ data: members, error: membersError }, { data: prompt, error: promptError }, { data: submissions, error: submissionsError }] = await Promise.all([
-      client.from("match_players").select("user_id,seat,joined_at,left_at").eq("match_id", match.id).order("seat"),
-      client.from("prompts").select("title,body,category,difficulty").eq("id", match.prompt_id).single(),
-      client.from("submissions").select("user_id,submitted_at").eq("match_id", match.id)
+    const [{ data: members, error: membersError }, { data: prompt, error: promptError }, { data: submissions, error: submissionsError }, { data: skipVotes, error: skipError }] = await Promise.all([
+      client.from("match_players").select("user_id,seat,joined_at,left_at").eq("match_id", match.id).is("left_at", null).order("seat"),
+      client.from("prompts").select("id,title,body,category,difficulty").eq("id", match.prompt_id).single(),
+      client.from("submissions").select("user_id,submitted_at").eq("match_id", match.id),
+      client.from("prompt_skip_votes").select("user_id").eq("match_id", match.id)
     ]);
     if (membersError) throw membersError;
     if (promptError) throw promptError;
     if (submissionsError) throw submissionsError;
+    if (skipError) throw skipError;
     matchMembers = members || []; currentPrompt = prompt;
-    return { members: members || [], prompt, submissions: submissions || [] };
+    return { members: members || [], prompt, submissions: submissions || [], skipVotes: skipVotes || [] };
   }
   async function pollMatch() {
     if (!activeMatch?.id || !client) return;
@@ -565,7 +581,17 @@
     safeText($("match-id"), `MATCH ${match.id.slice(0, 8).toUpperCase()}`);
     safeText($("live-room-count"), `${data.members.length} writers in this match`);
     safeText($("submission-progress"), `${data.submissions.length} / ${data.members.length} submitted`);
-    safeText($("character-limit-label"), Number(match.character_limit || currentPrefs.characters).toLocaleString());
+    safeText($("character-limit-label"), Number(match.character_limit || characterLimitForMinutes(match.duration_seconds / 60)).toLocaleString());
+    const skipCount = data.skipVotes.length;
+    const mySkipVote = data.skipVotes.some(v => v.user_id === currentUser.id);
+    const skipButton = $("skip-prompt-btn");
+    skipButton.disabled = Boolean(mine.data) || data.submissions.length > 0 || mySkipVote;
+    safeText(skipButton, mySkipVote ? `Vote recorded (${skipCount}/${data.members.length})` : `Vote to skip prompt (${skipCount}/${data.members.length})`);
+    safeText($("skip-prompt-status"), data.submissions.length > 0
+      ? "Voting has closed because a story was submitted."
+      : mySkipVote
+        ? "Your vote is in. The prompt changes when everyone votes; the timer will restart."
+        : "Everyone must vote. If all agree, a random prompt is chosen and the full timer restarts.");
     deadlineMs = new Date(match.deadline_at).getTime();
     submissionSent = Boolean(mine.data);
     if (mine.data) {
@@ -604,7 +630,7 @@
   function countCharacters(text) { return Array.from(text).length; }
   function updateCharacterCount() {
     const input = $("story-input");
-    const limit = activeMatch?.character_limit || currentPrefs.characters || 10000;
+    const limit = activeMatch?.character_limit || characterLimitForMinutes(currentPrefs.minutes);
     const chars = Array.from(input.value);
     if (chars.length > limit) {
       input.value = chars.slice(0, limit).join("");
@@ -625,7 +651,7 @@
   async function submitStory(override = null, automatic = false) {
     if (!activeMatch || submissionSent || busy) return;
     const body = (override ?? $("story-input").value).trim();
-    const limit = activeMatch.character_limit || currentPrefs.characters || 10000;
+    const limit = activeMatch.character_limit || characterLimitForMinutes(currentPrefs.minutes);
     if (!body) return toast("Write something before submitting.");
     if (countCharacters(body) > limit) return toast(`Your story must be ${limit.toLocaleString()} characters or fewer.`);
     setBusy(true, ["submit-btn"]); safeText($("submit-btn"), "Submitting...");
@@ -660,11 +686,12 @@
     if (memberError) { toast(memberError.message); return; }
     matchMembers = members || [];
     const ids = matchMembers.map(m => m.user_id);
-    const [{ data: profiles }, { data: submissions }] = await Promise.all([
+    const [{ data: profiles }, { data: submissions }, { data: promptData }] = await Promise.all([
       client.from("profiles").select("id,username").in("id", ids),
       match.judge_status === "blocked"
         ? Promise.resolve({ data: [], error: null })
-        : client.from("submissions").select("user_id,body,submitted_at").eq("match_id", match.id)
+        : client.from("submissions").select("user_id,body,submitted_at").eq("match_id", match.id),
+      client.from("prompts").select("title").eq("id", match.prompt_id).maybeSingle()
     ]);
     const profileById = new Map((profiles || []).map(p => [p.id, p.username]));
     const submissionById = new Map((submissions || []).map(s => [s.user_id, s.body]));
@@ -679,7 +706,7 @@
     if (match.judge_status === "blocked") {
       $("story-results").textContent = "This match was stopped by the automated safety filter. Stories are not revealed, no scores were issued, and ratings were not changed. Start a new match with age-appropriate fictional writing.";
     } else {
-      renderStories(ordered);
+      renderStories(ordered, match, promptData?.title || "Ink Arena story", match.judge_status === "completed");
     }
     const canJudge = match.status === "completed" && !["completed", "processing", "blocked"].includes(match.judge_status);
     $("judge-retry-btn").classList.toggle("hidden", !canJudge);
@@ -689,7 +716,7 @@
   function renderJudgeStatus(match) {
     const box = $("judge-status");
     box.className = "judge-status";
-    if (match.judge_status === "completed") { box.classList.add("done"); box.innerHTML = match.judge_result?.unranked_match ? '<span class="status-dot"></span><span>AI judging complete · guest match · no ELO changes.</span>' : '<span class="status-dot"></span><span>AI judging complete · scores and ratings saved.</span>'; }
+    if (match.judge_status === "completed") { box.classList.add("done"); box.innerHTML = match.judge_result?.unranked_match ? '<span class="status-dot"></span><span>Judging complete · unranked match · nobody gained or lost ELO.</span>' : '<span class="status-dot"></span><span>Judging complete · ranked scores and rating changes saved.</span>'; }
     else if (match.judge_status === "processing") { box.innerHTML = '<span class="status-dot"></span><span>AI judge is reading the stories and comparing the rubric…</span>'; }
     else if (match.judge_status === "failed") { box.classList.add("error"); box.innerHTML = '<span class="status-dot"></span><span>AI judging failed. You can retry after checking the API setup.</span>'; }
     else if (match.judge_status === "blocked") { box.classList.add("error"); box.textContent = "The automated safety filter stopped this match. No stories were revealed, no scores were issued, and no ratings changed."; }
@@ -711,7 +738,7 @@
     scoreData.sort((a, b) => (b.total || 0) - (a.total || 0));
     const winningScore = scoreData[0].total;
     const winningNames = entries.filter(e => scoreData.some(s => s.user_id === e.user_id && s.total === winningScore)).map(e => e.username);
-    winner.textContent = winningNames.length === 1 ? `🏆 ${winningNames[0]} wins the room with ${winningScore}/100.` : `🏆 It's a tie at the top: ${winningNames.join(", ")} · ${winningScore}/100.`;
+    winner.textContent = winningNames.length === 1 ? `🏆 WINNER: ${winningNames[0]} · ${winningScore}/100` : `🏆 TIE: ${winningNames.join(", ")} · ${winningScore}/100`;
     winner.classList.remove("hidden");
     scoreData.forEach((score, index) => {
       const who = entries.find(e => e.user_id === score.user_id);
@@ -726,7 +753,9 @@
       const points = document.createElement("strong"); points.className = "ranked-score"; points.textContent = `${score.total}/100`;
       top.append(left, points); card.appendChild(top);
       const bars = document.createElement("div"); bars.className = "score-bars";
-      const labels = [["Craft", "craft"], ["Story", "story"], ["Prompt", "prompt_fit"], ["Emotion", "emotion"], ["Originality", "originality"]];
+      const labels = result?.rubric_version === "ink-arena-rubric-v2"
+        ? [["Craft & clarity", "craft"], ["Story & structure", "story"], ["Prompt fit", "prompt_fit"], ["Emotion & impact", "emotion"], ["Spelling & grammar", "spelling_grammar"]]
+        : [["Craft", "craft"], ["Story", "story"], ["Prompt fit", "prompt_fit"], ["Emotion", "emotion"], ["Originality", "originality"]];
       labels.forEach(([label, key]) => {
         const metric = document.createElement("div"); metric.className = "score-metric";
         const l = document.createElement("label"); l.textContent = label;
@@ -747,15 +776,161 @@
     });
   }
 
-  function renderStories(entries) {
+  function renderStories(entries, match, promptTitle, actionsAllowed = true) {
     const container = $("story-results"); container.replaceChildren();
     entries.forEach(entry => {
       const card = document.createElement("article"); card.className = "story-panel";
-      const title = document.createElement("h4"); title.textContent = `${entry.username}${entry.user_id === currentUser.id ? " · YOU" : ""}`;
+      const title = document.createElement("h4"); title.textContent = `${entry.username}${entry.user_id === currentUser.id ? " · YOUR STORY" : ""}`;
       const body = document.createElement("p"); body.textContent = entry.body;
       card.append(title, body);
+      if (entry.user_id === currentUser.id && actionsAllowed && !currentProfile?.is_guest && entry.body !== "No story was submitted.") {
+        const actions = document.createElement("div"); actions.className = "story-actions";
+        const save = document.createElement("button"); save.className = "secondary-btn"; save.textContent = "☆ Save to my profile";
+        save.addEventListener("click", () => saveMyStory(match.id, promptTitle));
+        const publish = document.createElement("button"); publish.className = "secondary-btn"; publish.textContent = "Publish to Gallery";
+        publish.addEventListener("click", () => publishMyStory(match.id, promptTitle));
+        actions.append(save, publish); card.appendChild(actions);
+      } else if (entry.user_id === currentUser.id && currentProfile?.is_guest) {
+        const note = document.createElement("p"); note.className = "fine-print"; note.textContent = "Create a regular account to save stories permanently or publish them to the Gallery."; card.appendChild(note);
+      }
       container.appendChild(card);
     });
+  }
+
+  async function voteSkipPrompt() {
+    if (!activeMatch?.id || activeMatch.status !== "active" || submissionSent || busy) return;
+    const button = $("skip-prompt-btn"); button.disabled = true;
+    try {
+      const { data, error } = await client.rpc("vote_skip_prompt", { p_match_id: activeMatch.id });
+      if (error) throw error;
+      if (data?.prompt_changed) toast("Everyone agreed. A new prompt is ready and the timer has restarted.");
+      else toast(`Your vote is recorded (${data?.votes || 0}/${data?.total || matchMembers.length}). Waiting for everyone else.`);
+      await pollMatch();
+    } catch (e) {
+      toast(e.message || "Could not record your vote.");
+      button.disabled = false;
+    }
+  }
+
+  function askStoryTitle(defaultTitle) {
+    const title = window.prompt("Give your story a title (up to 100 characters):", defaultTitle || "My Ink Arena story");
+    if (title === null) return null;
+    const cleaned = title.trim().slice(0, 100);
+    if (!cleaned) { toast("Please enter a story title."); return null; }
+    return cleaned;
+  }
+
+  async function saveMyStory(matchId, promptTitle) {
+    if (!currentUser || currentProfile?.is_guest) return toast("A regular account is required to save stories to your profile.");
+    const title = askStoryTitle(`Story inspired by ${promptTitle}`);
+    if (!title) return;
+    try {
+      const { error } = await client.rpc("save_story", { p_source_match_id: matchId, p_title: title });
+      if (error) throw error;
+      toast("Saved to your profile.");
+      await loadSavedStories();
+    } catch (e) { toast(e.message || "Could not save this story."); }
+  }
+
+  async function publishMyStory(matchId, promptTitle) {
+    if (!currentUser || currentProfile?.is_guest) return toast("A regular account is required to publish stories.");
+    const title = askStoryTitle(`Story inspired by ${promptTitle}`);
+    if (!title) return;
+    if (!window.confirm("Publish this story to the public Gallery? Anyone who visits Ink Arena can read it. Do not include personal information.")) return;
+    try {
+      const { error } = await client.rpc("publish_story", { p_source_match_id: matchId, p_title: title });
+      if (error) throw error;
+      toast("Your story is now in the public Gallery.");
+      loadGallery();
+    } catch (e) { toast(e.message || "Could not publish this story."); }
+  }
+
+  async function loadSavedStories() {
+    const container = $("saved-stories-list");
+    if (!container) return;
+    if (!currentUser || currentProfile?.is_guest) {
+      container.replaceChildren();
+      const note = document.createElement("p"); note.className = "empty-history";
+      note.textContent = currentProfile?.is_guest ? "Guest profiles are temporary. Create a regular account to keep a personal story library." : "Sign in with a regular account to save stories here.";
+      container.appendChild(note); return;
+    }
+    const { data, error } = await client.from("saved_stories")
+      .select("id,title,body,source_match_id,created_at")
+      .eq("user_id", currentUser.id).order("created_at", { ascending: false });
+    container.replaceChildren();
+    if (error) { const p = document.createElement("p"); p.className = "empty-history"; p.textContent = `Saved stories could not load: ${error.message}`; container.appendChild(p); return; }
+    if (!data?.length) { const p = document.createElement("p"); p.className = "empty-history"; p.textContent = "Nothing saved yet. Use “Save to my profile” under one of your judged stories."; container.appendChild(p); return; }
+    data.forEach(story => {
+      const item = document.createElement("article"); item.className = "saved-story-item";
+      const copy = document.createElement("div");
+      const title = document.createElement("h3"); title.textContent = story.title;
+      const body = document.createElement("p"); body.textContent = story.body;
+      copy.append(title, body);
+      const actions = document.createElement("div"); actions.className = "saved-story-actions";
+      const publish = document.createElement("button"); publish.className = "secondary-btn"; publish.textContent = "Publish";
+      publish.addEventListener("click", async () => {
+        if (!window.confirm("Publish this story to the public Gallery? Anyone can read it. Do not include personal information.")) return;
+        const { error: publishError } = await client.rpc("publish_saved_story", { p_saved_story_id: story.id });
+        if (publishError) toast(publishError.message); else { toast("Published to the Gallery."); loadGallery(); }
+      });
+      const remove = document.createElement("button"); remove.className = "secondary-btn danger-btn"; remove.textContent = "Delete";
+      remove.addEventListener("click", async () => {
+        if (!window.confirm("Delete this saved story from your profile?")) return;
+        const { error: deleteError } = await client.from("saved_stories").delete().eq("id", story.id).eq("user_id", currentUser.id);
+        if (deleteError) toast(deleteError.message); else { toast("Saved story deleted."); loadSavedStories(); }
+      });
+      actions.append(publish, remove); item.append(copy, actions); container.appendChild(item);
+    });
+  }
+
+  async function loadGallery() {
+    const container = $("gallery-list");
+    if (!container || !client) return;
+    container.replaceChildren();
+    const loading = document.createElement("p"); loading.className = "empty-history"; loading.textContent = "Loading the Gallery…"; container.appendChild(loading);
+    const { data, error } = await client.rpc("get_public_gallery", { p_limit: 100 });
+    if (error) { container.replaceChildren(); const p = document.createElement("p"); p.className = "empty-history"; p.textContent = `Gallery could not load: ${error.message}. Run the v3.3 database update first.`; container.appendChild(p); return; }
+    let likedIds = new Set();
+    if (currentUser && !currentProfile?.is_guest) {
+      const { data: likes } = await client.from("gallery_likes").select("story_id").eq("user_id", currentUser.id);
+      likedIds = new Set((likes || []).map(row => row.story_id));
+    }
+    const stories = (data || []).map(story => ({ ...story, likeCount: Number(story.like_count || 0) }));
+    container.replaceChildren();
+    if (!stories.length) { const p = document.createElement("p"); p.className = "empty-history"; p.textContent = "The Gallery is empty so far. Be the first to publish a judged story."; container.appendChild(p); return; }
+    stories.forEach(story => {
+      const card = document.createElement("article"); card.className = "gallery-card";
+      const title = document.createElement("h3"); title.textContent = story.title;
+      const meta = document.createElement("div"); meta.className = "gallery-meta"; meta.textContent = `By ${story.author_name} · ${new Date(story.created_at).toLocaleDateString()}`;
+      const body = document.createElement("p"); body.className = "gallery-body"; body.textContent = story.body;
+      const actions = document.createElement("div"); actions.className = "gallery-actions";
+      const like = document.createElement("button"); like.className = `secondary-btn like-btn${likedIds.has(story.id) ? " liked" : ""}`;
+      const isOwner = currentUser && currentUser.id === story.author_id;
+      const canLike = Boolean(currentUser && currentProfile && !currentProfile.is_guest && !isOwner);
+      like.textContent = currentUser?.is_anonymous || currentProfile?.is_guest ? `👍 ${story.likeCount} · Account needed` : !currentUser ? `👍 ${story.likeCount} · Sign in to like` : isOwner ? `👍 ${story.likeCount} · Your story` : `${likedIds.has(story.id) ? "♥ Liked" : "👍 Like"} · ${story.likeCount}`;
+      like.disabled = !canLike;
+      if (canLike) like.addEventListener("click", () => toggleGalleryLike(story.id, likedIds.has(story.id)));
+      actions.appendChild(like);
+      if (isOwner) {
+        const remove = document.createElement("button"); remove.className = "secondary-btn danger-btn"; remove.textContent = "Remove post";
+        remove.addEventListener("click", async () => {
+          if (!window.confirm("Remove this story from the public Gallery?")) return;
+          const { error: deleteError } = await client.from("gallery_stories").delete().eq("id", story.id).eq("author_id", currentUser.id);
+          if (deleteError) toast(deleteError.message); else { toast("Gallery post removed."); loadGallery(); }
+        });
+        actions.appendChild(remove);
+      }
+      card.append(title, meta, body, actions); container.appendChild(card);
+    });
+  }
+
+  async function toggleGalleryLike(storyId, isLiked) {
+    if (!currentUser || currentProfile?.is_guest) return toast("Sign in with a regular account to like stories.");
+    const result = isLiked
+      ? await client.from("gallery_likes").delete().eq("story_id", storyId).eq("user_id", currentUser.id)
+      : await client.from("gallery_likes").insert({ story_id: storyId, user_id: currentUser.id });
+    if (result.error) { toast(result.error.message); return; }
+    await loadGallery();
   }
 
   async function runJudge(userRequested) {
