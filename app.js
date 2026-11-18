@@ -1375,3 +1375,91 @@
 
   init();
 })();
+
+/* ===== v3.7.1 polish layer (additive; game logic untouched) ===== */
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const ready = (fn) => document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", fn) : fn();
+  ready(() => {
+    const input = $("story-input"), timer = $("timer"), footer = document.querySelector(".editor-footer"), card = $("editor-card");
+    if (!input || !timer || !footer || !card) return;
+
+    // Quiet stats in the existing footer line: words · draft saved · focus
+    const stats = document.createElement("span");
+    stats.className = "ia-stats";
+    stats.innerHTML = '<span id="ia-words">0 words</span><span class="ia-saved off" id="ia-saved">✓ saved</span><button type="button" class="text-btn" id="ia-focus" title="Hide everything except your story (Esc to exit)">Focus mode</button>';
+    footer.appendChild(stats);
+    $("submit-btn")?.setAttribute("title", "Submit (Ctrl/⌘ + Enter)");
+    let t;
+    const words = () => { const w = (input.value.trim().match(/\S+/g) || []).length; $("ia-words").textContent = w.toLocaleString() + (w === 1 ? " word" : " words"); };
+    input.addEventListener("input", () => {
+      words(); clearTimeout(t);
+      t = setTimeout(() => { const s = $("ia-saved"); s.classList.remove("off"); setTimeout(() => s.classList.add("off"), 1600); }, 700);
+    });
+    setInterval(words, 1500); // catches restored drafts
+
+    const setFocus = (on) => { document.body.classList.toggle("ia-focus", on); $("ia-focus").textContent = on ? "Exit focus" : "Focus mode"; if (on) { window.scrollTo({ top: 0 }); input.focus(); } };
+    $("ia-focus").addEventListener("click", () => setFocus(!document.body.classList.contains("ia-focus")));
+    const hint = document.createElement("div"); hint.className = "ia-focus-hint";
+    hint.innerHTML = '<button type="button" class="text-btn" id="ia-exit">Exit focus</button><span>Esc to exit · Ctrl/⌘ + Enter to submit</span>';
+    document.body.appendChild(hint); $("ia-exit").addEventListener("click", () => setFocus(false));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("ia-focus")) setFocus(false); });
+    input.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { const b = $("submit-btn"); if (b && !b.disabled) { e.preventDefault(); b.click(); } }
+    });
+
+    // Thin time bar driven by your existing timer text (never drifts from the real clock)
+    const bar = document.createElement("div");
+    bar.className = "ia-timebar"; bar.innerHTML = "<i></i>";
+    card.querySelector(".prompt-box")?.before(bar);
+    let total = 0;
+    new MutationObserver(() => {
+      const m = timer.textContent.trim().match(/^(\d+):(\d{2})$/); if (!m) return;
+      const s = +m[1] * 60 + +m[2]; if (s > total) total = s;
+      bar.firstElementChild.style.transform = "scaleX(" + (total ? s / total : 1) + ")";
+      bar.classList.toggle("low", s <= 30);
+    }).observe(timer, { childList: true, characterData: true, subtree: true });
+    new MutationObserver(() => { if (card.classList.contains("hidden")) { total = 0; setFocus(false); } }).observe(card, { attributes: true, attributeFilter: ["class"] });
+
+    addEventListener("beforeunload", (e) => { if (!card.classList.contains("hidden") && input.value.trim()) { e.preventDefault(); e.returnValue = ""; } });
+
+    const net = document.createElement("div");
+    net.className = "ia-net"; net.setAttribute("role", "alert"); document.body.appendChild(net);
+    const showNet = (msg, ok) => { net.textContent = msg; net.classList.toggle("ok", ok); net.classList.add("show"); if (ok) setTimeout(() => net.classList.remove("show"), 2200); };
+    addEventListener("offline", () => showNet("You're offline — your draft is safe on this device.", false));
+    addEventListener("online", () => showNet("Back online ✓", true));
+
+    // In-app navigation uses pushState, so listen for the nav clicks (and Back/Forward) instead of hashchange
+    document.addEventListener("click", (e) => { if (e.target.closest("[data-page]")) window.scrollTo({ top: 0 }); });
+    addEventListener("popstate", () => window.scrollTo({ top: 0 }));
+  });
+})();
+
+/* ===== v3.8.1 — About page as dropdown sections (native <details>, keyboard accessible) ===== */
+(() => {
+  document.querySelectorAll("#page-about .about-card").forEach((card, i) => {
+    if (card.tagName === "DETAILS") return;
+    const box = document.createElement("details");
+    box.className = card.className;
+    box.open = i === 0;
+    const summary = document.createElement("summary");
+    const head = document.createElement("div");
+    head.className = "about-head";
+    head.append(card.querySelector(".eyebrow"), card.querySelector("h2"));
+    summary.appendChild(head);
+    const body = document.createElement("div");
+    body.className = "about-body";
+    while (card.firstChild) body.appendChild(card.firstChild);
+    box.append(summary, body);
+    card.replaceWith(box);
+  });
+})();
+
+/* ===== v3.8.0 — consistent line icons instead of font glyphs (which can render as emoji on some devices) ===== */
+(() => {
+  const set = (sel, d) => document.querySelectorAll(sel).forEach((el) => { el.innerHTML = '<svg class="ia-ico" viewBox="0 0 24 24" aria-hidden="true">' + d + "</svg>"; });
+  set("#settings-open", '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>');
+  set(".mode-icon", '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>');
+  set(".trophy", '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 21h8M10 17h4"/>');
+})();
