@@ -646,3 +646,126 @@ button{font-size:14px}
   .editor-actions { grid-template-columns: 1fr; }
   .editor-actions .leave-game-btn { width: 100%; }
 }
+
+/* v3.6.5 — room panel typography and host action sizing. */
+.private-room-card {
+  padding: clamp(28px, 3.4vw, 42px);
+}
+.private-room-heading {
+  margin-bottom: clamp(24px, 3vw, 34px);
+}
+.private-room-heading h2 {
+  font-size: clamp(34px, 3.6vw, 42px);
+  line-height: 1.12;
+}
+.private-room-heading p {
+  max-width: 720px;
+  font-size: 17px;
+  line-height: 1.65;
+}
+.private-room-action {
+  min-height: 400px;
+  padding: clamp(26px, 3vw, 38px);
+}
+.private-room-action-title {
+  min-height: 108px;
+  gap: 15px;
+}
+.private-room-action-title h3 {
+  font-size: clamp(24px, 2.2vw, 27px);
+  line-height: 1.18;
+  margin-bottom: 9px;
+}
+.private-room-action-title p {
+  font-size: 16px;
+  line-height: 1.65;
+}
+.private-room-step {
+  width: 38px;
+  height: 38px;
+  font-size: 13px;
+}
+.private-room-action label {
+  font-size: 15px;
+}
+.host-room-action {
+  grid-template-rows: minmax(108px, auto) minmax(132px, 1fr) min-content;
+}
+.host-room-action .private-room-action-spacer {
+  display: none;
+}
+.host-room-action .private-room-main-btn {
+  min-height: 132px;
+  height: 100%;
+  font-size: clamp(19px, 2vw, 22px);
+  letter-spacing: .35px;
+}
+.join-room-action {
+  grid-template-rows: minmax(108px, auto) minmax(86px, 1fr) 86px min-content;
+}
+.join-room-action .private-room-main-btn {
+  min-height: 86px;
+  height: 86px;
+  font-size: clamp(18px, 1.8vw, 20px);
+}
+.private-room-action input {
+  min-height: 66px;
+  font-size: 19px;
+}
+.private-room-cap-note,
+.private-room-hint {
+  font-size: 13px;
+  letter-spacing: .35px;
+}
+.private-room-hint {
+  font-size: 14px;
+}
+.private-room-feedback {
+  font-size: 14px;
+}
+.private-room-main-btn span {
+  font-size: 21px;
+}
+@media (max-width: 760px) {
+  .private-room-card {
+    padding: 24px;
+  }
+  .private-room-action {
+    min-height: 0;
+    padding: 24px;
+  }
+  .host-room-action {
+    grid-template-rows: auto 116px min-content;
+  }
+  .host-room-action .private-room-main-btn {
+    min-height: 116px;
+    height: 116px;
+  }
+  .join-room-action {
+    grid-template-rows: auto auto 76px min-content;
+  }
+  .join-room-action .private-room-main-btn {
+    min-height: 76px;
+    height: 76px;
+  }
+}
+@media (max-width: 520px) {
+  .private-room-card {
+    padding: 19px;
+  }
+  .private-room-heading h2 {
+    font-size: 32px;
+  }
+  .private-room-heading p {
+    font-size: 16px;
+  }
+  .private-room-action {
+    padding: 19px;
+  }
+  .private-room-action-title h3 {
+    font-size: 23px;
+  }
+  .private-room-action-title p {
+    font-size: 15px;
+  }
+}
