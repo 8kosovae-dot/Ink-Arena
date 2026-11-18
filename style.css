@@ -902,5 +902,5 @@ input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px color-mix(in srgb,v
 .hero h1{letter-spacing:-2px}
 .ia-ico{width:1em;height:1em;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .icon-btn .ia-ico{margin:auto}
-@media(min-width:761px){.topbar{position:sticky;top:0;z-index:15;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px)}}
+/* v3.8.2: restore the original transparent, non-sticky navigation header */
 body.ia-focus .topbar{position:static}
