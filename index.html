@@ -140,14 +140,17 @@
             <div class="private-room-grid">
               <div class="private-room-action host-room-action">
                 <div class="private-room-action-title"><span class="private-room-step">01 / HOST</span><div><h3>Create a room</h3><p>Choose the match time above, then share your room code.</p></div></div>
-                <div class="private-room-capacity-value" aria-label="Maximum room capacity: 30 players"><strong>30 players</strong></div>
-                <button class="primary-btn full-btn" id="host-room-btn" type="button">Create private room <span>→</span></button>
+                <div class="private-room-action-spacer" aria-hidden="true"></div>
+                <button class="primary-btn full-btn private-room-main-btn" id="host-room-btn" type="button">Create private room <span>→</span></button>
+                <p class="private-room-cap-note">Player cap: <strong>30</strong></p>
               </div>
               <div class="private-room-action join-room-action">
                 <div class="private-room-action-title"><span class="private-room-step">02 / JOIN</span><div><h3>Join a room</h3><p>Enter the 8-character code shared by the host.</p></div></div>
-                <label for="join-room-code">Room code</label>
-                <input id="join-room-code" type="text" maxlength="8" minlength="8" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="ENTER CODE" aria-describedby="join-room-help">
-                <button class="secondary-btn full-btn" id="join-room-btn" type="button">Join private room <span>→</span></button>
+                <div class="private-room-code-field">
+                  <label for="join-room-code">Room code</label>
+                  <input id="join-room-code" type="text" maxlength="8" minlength="8" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="ENTER CODE" aria-describedby="join-room-help">
+                </div>
+                <button class="secondary-btn full-btn private-room-main-btn" id="join-room-btn" type="button">Join private room <span>→</span></button>
                 <p class="private-room-hint" id="join-room-help">Registered players and guests can join.</p>
               </div>
             </div>
@@ -161,8 +164,10 @@
             <div class="room-strip"><span id="live-room-count">4 writers in this match</span><span id="submission-progress">0 / 4 submitted</span></div>
             <label class="sr-only" for="story-input">Your story</label><textarea id="story-input" maxlength="10000" placeholder="Every great story starts with a sentence..."></textarea>
             <div class="editor-footer"><span><b id="character-count">0</b> / <span id="character-limit-label">5,000</span> characters</span></div>
-            <div class="editor-actions"><button class="primary-btn" id="submit-btn" disabled>Submit story <span>→</span></button></div>
-            <button class="text-btn" id="leave-match-btn">Leave this match</button>
+            <div class="editor-actions">
+              <button class="primary-btn" id="submit-btn" disabled>Submit story <span>→</span></button>
+              <button class="secondary-btn danger-btn leave-game-btn" id="leave-match-btn" type="button">Leave game</button>
+            </div>
           </div>
           <div class="opponent-wait-card hidden" id="opponent-wait-card"><div class="waiting-spinner"></div><div class="eyebrow">SUBMISSION SAVED</div><h3>Your story is in.</h3><p>Your story has been submitted. Results appear when everyone finishes or the timer runs out.</p><div class="room-progress"><div class="room-progress-bar" id="submitted-progress-bar"></div></div><div class="room-count" id="submitted-progress-label">Waiting for the rest of the room...</div><button class="secondary-btn" id="refresh-match-btn">Check match status</button></div>
           <div class="results-card hidden" id="results-card"><div class="result-banner"><span class="eyebrow">BATTLE COMPLETE</span><div class="result-title" id="result-title">The stories are ready.</div><p id="result-subtitle">Read the entries and compare the judging.</p></div><div class="judge-status" id="judge-status"><span class="status-dot"></span><span>Preparing AI judging…</span></div><div id="winner-banner" class="winner-banner hidden"></div><div id="results-ranking" class="results-ranking"></div><div class="result-actions"><button class="primary-btn" id="judge-retry-btn">Run AI judging</button><button class="secondary-btn" id="again-btn">Find another match →</button></div><div class="story-results" id="story-results"></div><p class="fine-print">AI scores are structured feedback, not an objective measure of literary worth. Review the explanations and use your own judgment.</p></div>

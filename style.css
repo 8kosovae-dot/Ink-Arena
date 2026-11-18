@@ -530,3 +530,119 @@ button{font-size:14px}
   .private-room-action { min-height: 0; }
   .private-room-action-title { min-height: 0; }
 }
+
+/* v3.6.4 — room actions use the available panel space; live-game controls stay obvious. */
+.private-room-grid {
+  align-items: stretch;
+  gap: clamp(18px, 2.5vw, 28px);
+}
+.private-room-action {
+  min-height: 340px;
+  padding: clamp(24px, 3vw, 34px);
+  display: grid;
+  grid-template-rows: minmax(92px, auto) minmax(64px, 1fr) 68px min-content;
+  gap: 14px;
+  align-content: stretch;
+}
+.private-room-action-title {
+  min-height: 92px;
+  align-items: flex-start;
+}
+.private-room-action-title h3 {
+  margin: 1px 0 8px;
+  font-size: 21px;
+}
+.private-room-action-title p {
+  max-width: 34ch;
+  line-height: 1.6;
+}
+.private-room-action-spacer {
+  min-height: 64px;
+}
+.private-room-code-field {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+}
+.private-room-action input {
+  min-height: 60px;
+  font-size: 18px;
+  letter-spacing: .2em;
+  text-align: center;
+}
+.private-room-action .private-room-main-btn {
+  width: 100%;
+  min-height: 68px;
+  height: 68px;
+  border-radius: 9px;
+  justify-content: center;
+  font-size: 16px;
+  letter-spacing: .45px;
+}
+.private-room-main-btn span {
+  margin-left: 15px;
+  font-size: 18px;
+}
+.private-room-cap-note,
+.private-room-hint {
+  min-height: 18px;
+  margin: 0;
+  align-self: center;
+  color: var(--muted);
+  font: 10px var(--mono);
+  letter-spacing: .8px;
+  text-align: center;
+}
+.private-room-cap-note strong {
+  color: var(--gold);
+  font-weight: 700;
+}
+.private-room-hint {
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+.private-room-action .private-room-main-btn:focus-visible,
+.leave-game-btn:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--gold) 65%, transparent);
+  outline-offset: 3px;
+}
+.editor-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 220px);
+  gap: 12px;
+  align-items: stretch;
+}
+.editor-actions .primary-btn,
+.editor-actions .leave-game-btn {
+  min-height: 60px;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: 8px;
+}
+.editor-actions .primary-btn {
+  display: flex;
+  align-items: center;
+}
+.leave-game-btn {
+  border: 1px solid color-mix(in srgb, var(--red) 45%, var(--line));
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 8%, var(--panel2));
+  font-weight: 700;
+}
+.leave-game-btn:hover {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 14%, var(--panel2));
+}
+@media (max-width: 760px) {
+  .private-room-action {
+    min-height: 0;
+    grid-template-rows: auto minmax(24px, auto) 64px auto;
+  }
+  .private-room-action-title { min-height: 0; }
+  .private-room-action-spacer { min-height: 18px; }
+}
+@media (max-width: 520px) {
+  .editor-actions { grid-template-columns: 1fr; }
+  .editor-actions .leave-game-btn { width: 100%; }
+}
