@@ -769,3 +769,67 @@ button{font-size:14px}
     font-size: 15px;
   }
 }
+
+
+/* v3.6.6 — refined private-room presentation */
+.private-room-card {
+  border: 1px solid color-mix(in srgb, var(--gold) 19%, var(--line));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--panel2) 96%, var(--gold) 4%), var(--panel));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .16);
+}
+.private-room-heading {
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.private-room-heading .eyebrow {
+  margin-bottom: 9px;
+  color: var(--gold);
+  letter-spacing: 1.35px;
+}
+.private-room-grid {
+  gap: clamp(18px, 2.2vw, 26px);
+}
+.private-room-action {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--gold) 18%);
+  border-radius: 13px;
+  background: linear-gradient(155deg, var(--panel2), color-mix(in srgb, var(--panel3) 84%, var(--panel2)));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+  transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.private-room-action:hover {
+  border-color: color-mix(in srgb, var(--gold) 48%, var(--line));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .19);
+  transform: translateY(-2px);
+}
+.private-room-action-title {
+  display: block;
+  padding-bottom: 19px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+}
+.private-room-action-title h3 {
+  margin-top: 0;
+  letter-spacing: -.35px;
+}
+.private-room-action-title p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+.private-room-action .private-room-main-btn {
+  border-radius: 10px;
+  font-weight: 750;
+  box-shadow: 0 7px 18px rgba(0, 0, 0, .16);
+}
+.private-room-action input {
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 86%, black);
+}
+.private-room-cap-note, .private-room-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .private-room-action:hover { transform: none; }
+}
